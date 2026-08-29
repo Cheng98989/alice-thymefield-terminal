@@ -201,6 +201,17 @@ The check runs before anything is copied, so a refusal leaves nothing behind.
 It only applies on the way in: a character already installed stays selectable,
 forced or not.
 
+To get rid of one:
+
+```powershell
+fastfetch icon remove yourcharacter
+```
+
+It shows what is about to go and asks before deleting; add `-force` to skip the
+question. If you delete the one currently showing it moves to another character
+by itself, because leaving `config.jsonc` pointing at a folder that is no longer
+there means every new terminal opens on an error.
+
 The command also writes the new width and height into `config.jsonc`. Those
 numbers tell fastfetch where to start the text column, so leaving them stale
 would overlap the art or leave a gap in the middle of the screen. Letting the

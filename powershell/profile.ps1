@@ -253,8 +253,9 @@ function Show-FastfetchIcon {
         }
     }
     Write-Host ""
-    Write-Host "  fastfetch icon <name>       switch character" -ForegroundColor DarkGray
-    Write-Host "  fastfetch icon <file.png>   import a new one" -ForegroundColor DarkGray
+    Write-Host "  fastfetch icon <name>          switch character" -ForegroundColor DarkGray
+    Write-Host "  fastfetch icon <file.png>      import a new one" -ForegroundColor DarkGray
+    Write-Host "  fastfetch icon remove <name>   delete one" -ForegroundColor DarkGray
     Write-Host ""
 }
 
@@ -307,6 +308,51 @@ function Use-Character($TxtPath, $Label, [bool]$Force, [bool]$CheckSize) {
         Write-Host "  logo       $TxtPath"
         Write-Host "  size       $($m.Width) x $($m.Height) characters, written into config.jsonc"
         Write-Host "  visible in the next window" -ForegroundColor DarkGray
+        Write-Host ""
+    }
+}
+
+function Get-CurrentCharacterName {
+    $src = Get-LogoSource
+    if ($src -and $src -match 'characters/([^/]+)/') { $matches[1] } else { $null }
+}
+
+function Remove-CharacterFolder($Name, [bool]$Force) {
+    $c = @(Get-Characters) | Where-Object { $_.Name -eq $Name } | Select-Object -First 1
+    if (-not $c) {
+        Write-Host "  no character called '$Name'" -ForegroundColor Red
+        $names = @(Get-Characters | ForEach-Object { $_.Name })
+        if ($names.Count) { Write-Host "  available: $($names -join ', ')" -ForegroundColor DarkGray }
+        return
+    }
+    $isCurrent = (Get-CurrentCharacterName) -eq $Name
+
+    if (-not $Force) {
+        $files = @(Get-ChildItem -LiteralPath $c.Dir -Recurse -File).Count
+        Write-Host ""
+        Write-Host "  about to delete  $($c.Dir)" -ForegroundColor Yellow
+        Write-Host "  containing       $files file(s), including the picture" -ForegroundColor DarkGray
+        if ($isCurrent) { Write-Host "  this is the one currently showing" -ForegroundColor DarkGray }
+        if ((Read-Host "  type y to confirm") -notmatch '^[yY]') {
+            Write-Host "  left alone" -ForegroundColor DarkGray
+            return
+        }
+    }
+
+    Remove-Item -LiteralPath $c.Dir -Recurse -Force
+    Write-Host "  removed characters\$Name" -ForegroundColor Green
+
+    if (-not $isCurrent) { return }
+    # Deleting the one in use would leave the config pointing at nothing and the
+    # terminal opening on an error, so move to whatever else is there.
+    $next = @(Get-Characters) | Where-Object { $_.Txt } | Select-Object -First 1
+    if ($next) {
+        Write-Host "  it was the active one, switching to $($next.Name)" -ForegroundColor DarkGray
+        Use-Character $next.Txt $next.Name $false $false
+    } else {
+        Write-Host ""
+        Write-Host "  that was the last character: the splash has no logo now." -ForegroundColor Yellow
+        Write-Host "  Add one with:  fastfetch icon <file.png>" -ForegroundColor DarkGray
         Write-Host ""
     }
 }
@@ -383,14 +429,19 @@ function Set-FastfetchIcon($Arg, [bool]$Force) {
 function fastfetch {
     if ($args.Count -ge 1 -and "$($args[0])" -eq 'icon') {
         $force = $false
-        $target = $null
+        $words = @()
         if ($args.Count -ge 2) {
             foreach ($a in $args[1..($args.Count - 1)]) {
-                if ("$a" -in '-force', '--force', '-f') { $force = $true }
-                elseif (-not $target) { $target = "$a" }
+                if ("$a" -in '-force', '--force', '-f', '-y') { $force = $true }
+                else { $words += "$a" }
             }
         }
-        if ($target) { Set-FastfetchIcon $target $force } else { Show-FastfetchIcon }
+        if ($words.Count -ge 1 -and $words[0] -eq 'remove') {
+            if ($words.Count -ge 2) { Remove-CharacterFolder $words[1] $force }
+            else { Write-Host "  usage: fastfetch icon remove <name>" }
+        }
+        elseif ($words.Count -ge 1) { Set-FastfetchIcon $words[0] $force }
+        else { Show-FastfetchIcon }
         return
     }
     if ($args.Count -ge 1 -and "$($args[0])" -eq 'auto') {
@@ -648,13 +699,16 @@ Register-ArgumentCompleter -Native -CommandName fastfetch -ScriptBlock {
 
     $suggestions = switch ($sub) {
         'icon' {
-            if ($tokens.Count -ge 3) {
+            if ($tokens.Count -ge 3 -and $tokens[2].ToLower() -eq 'remove') {
+                @(Get-Characters | ForEach-Object { New-Completion $_.Name 'delete this character' })
+            }
+            elseif ($tokens.Count -ge 3) {
                 @(New-Completion '-force' 'use a picture past the size limit')
             } else {
                 @(Get-Characters | ForEach-Object {
                     $note = if ($_.Txt) { 'character' } else { 'character (converts on first use)' }
                     New-Completion $_.Name $note
-                })
+                }) + @(New-Completion 'remove' 'delete a character')
             }
         }
         'auto' {
