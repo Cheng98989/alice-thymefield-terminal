@@ -18,7 +18,7 @@
   // this file needs no per-machine editing.
   "logo": {
     "type": "file-raw",
-    "source": "%USERPROFILE%/.config/fastfetch/characters/alice/alice.txt",
+    "source": "%USERPROFILE%/.config/fastfetch/characters/alice-logo/alice-logo.txt",
     "width": 44,
     "height": 23,
     "padding": {
@@ -67,14 +67,14 @@
   },
 
   "modules": [
-    // character: Alice
+    // character: Alice Logo
     // Kept in sync by "fastfetch icon". It records what the title currently
     // says, so a switch knows exactly which text to replace - deriving it from
     // the folder breaks as soon as a display name changes.
     {
       "type": "title",
       "key": " ",
-      "format": "{##DDE2F2}Hey, {##F6F1E2}{user-name}{##625FA6} — {##C5C6F0}Alice{##625FA6} is watching{#}"
+      "format": "{##DDE2F2}Hey, {##F6F1E2}{user-name}{##625FA6} — {##C5C6F0}Alice Logo{##625FA6} is watching{#}"
     },
     // "break",
 
