@@ -26,6 +26,20 @@ function Ok($t)       { Write-Host "    $t" -ForegroundColor Green }
 function Info($t)     { Write-Host "    $t" -ForegroundColor DarkGray }
 function Warn($t)     { Write-Host "    $t" -ForegroundColor Yellow }
 
+function Invoke-Native {
+    # PowerShell 5.1 turns anything a native program writes to stderr into an
+    # ErrorRecord, and under $ErrorActionPreference = 'Stop' that aborts the
+    # whole script. The Microsoft Store python.exe stub does exactly this, which
+    # used to kill the install before it had done anything. Native commands go
+    # through here so their noise can never take the installer down with them.
+    param([scriptblock]$Command)
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try     { & $Command 2>&1 | Out-String }
+    catch   { "$_" }
+    finally { $ErrorActionPreference = $previous }
+}
+
 Write-Host ""
 Write-Host "  terminal setup -> $Root" -ForegroundColor White
 
@@ -39,7 +53,10 @@ if ($ff) {
     Info "not found."
     $r = Read-Host "    Install it now with winget? [y/N]"
     if ($r -match '^[yY]') {
-        winget install --id Fastfetch-cli.Fastfetch --source winget --accept-package-agreements --accept-source-agreements
+        Invoke-Native {
+            winget install --id Fastfetch-cli.Fastfetch --source winget `
+                   --accept-package-agreements --accept-source-agreements
+        } | Write-Host
         Info "reopen the terminal afterwards so PATH picks it up"
     } else {
         Warn "skipped. Install it later with:  winget install Fastfetch-cli.Fastfetch"
@@ -48,17 +65,22 @@ if ($ff) {
 
 # ------------------------------------------------------------------ 2. Python
 Step 2 "Python (only needed to redraw the logo)"
-# May return more than one match when PATH has several installs: take the first.
+# May return more than one match when PATH has several installs. Entries under
+# WindowsApps are the Microsoft Store alias: a stub that is not an interpreter
+# at all, it only prints a message telling you to go install Python. Skipping
+# them here is what makes the difference between finding Python and finding a
+# shortcut that pretends to be Python.
 $py = Get-Command python.exe -CommandType Application -ErrorAction SilentlyContinue |
+      Where-Object { $_.Source -notlike '*\WindowsApps\*' } |
       Select-Object -First 1
 if ($py) {
     Ok "found: $($py.Source)"
-    $pil = & $py.Source -c "import PIL, numpy; print('ok')" 2>$null
-    if ($pil -eq 'ok') { Ok "Pillow and numpy present" }
+    $probe = Invoke-Native { & $py.Source -c "import PIL, numpy; print('ok')" }
+    if ($probe -match '\bok\b') { Ok "Pillow and numpy present" }
     else { Warn "Pillow/numpy missing:  python -m pip install pillow numpy" }
 } else {
     Info "not found. Not required to use the setup, only to regenerate the logo"
-    Info "after redrawing it."
+    Info "after redrawing it. Install it from python.org if you want to."
 }
 
 # ------------------------------------------------------- 3. PowerShell profile
