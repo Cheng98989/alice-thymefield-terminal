@@ -1,0 +1,25 @@
+[
+  {
+    "background": "#282A3A",
+    "black": "#000000",
+    "blue": "#427AB3",
+    "brightBlack": "#8C8F8A",
+    "brightBlue": "#84B0D8",
+    "brightCyan": "#37E6E8",
+    "brightGreen": "#99E343",
+    "brightPurple": "#BC94B7",
+    "brightRed": "#F54235",
+    "brightWhite": "#F1F1F0",
+    "brightYellow": "#FDEB61",
+    "cursorColor": "#FFFFFF",
+    "cyan": "#00A7AA",
+    "foreground": "#EAF2F1",
+    "green": "#5EA702",
+    "name": "Monokai Pro (Filter Octagon)",
+    "purple": "#89658E",
+    "red": "#D81E00",
+    "selectionBackground": "#FFFFFF",
+    "white": "#DBDED8",
+    "yellow": "#CFAE00"
+  }
+]

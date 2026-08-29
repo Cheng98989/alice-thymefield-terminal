@@ -244,17 +244,20 @@ interactive session first.
 ## Uninstall
 
 ```powershell
-customize off
-Remove-Item ~\.config\fastfetch -Force
-Remove-Item $PROFILE
+.\uninstall.ps1
 ```
 
-Line by line: the first turns the theming and splash off, the second removes the
-folder shortcut, the third removes the small file that loads the profile.
+It undoes exactly what the installer did: strips the theming, turns the splash
+off, removes the folder shortcut and takes the loader out of your PowerShell
+profile. If that profile also holds aliases of your own, only our part is
+removed and the rest is left alone.
 
-Then delete the folder itself, if you want. Nothing was installed anywhere else
-and nothing was written to the registry. If you also want fastfetch gone:
-`winget uninstall Fastfetch-cli.Fastfetch`.
+It never deletes this folder and never removes fastfetch. Add `-RemoveFastfetch`
+if you want that gone too, or run `winget uninstall Fastfetch-cli.Fastfetch`
+yourself later.
+
+Delete the folder whenever you like afterwards. Nothing was installed anywhere
+else and nothing was written to the registry.
 
 Your original Windows Terminal settings were saved before anything was changed,
 at `windows-terminal/settings.json.original`. To go back to exactly that:
@@ -270,6 +273,7 @@ copy windows-terminal\settings.json.original `
 
 ```
 install.ps1              the installer
+uninstall.ps1            puts everything back
 fastfetch/
   alice-logo.png         the artwork — edit this one
   alice-logo.txt         generated from the PNG; do not edit by hand
@@ -279,12 +283,19 @@ fastfetch/
   sources/               the original artwork it was traced from
 windows-terminal/
   appearance.json        the settings "customize on" applies
+  schemes.json           the colour palette itself
   alice_mindscape_nobg.png
 powershell/
   profile.ps1            the real profile; your own tweaks go here too
 ```
 
-Two files are deliberately not in the repository: `fastfetch/autostart.on`,
+`colorScheme` in `appearance.json` is only a *name* — Windows Terminal looks the
+palette up in its own list and shows an error dialog if the name is not there.
+That is why the palette travels in `schemes.json` and gets added to your list
+before anything points at it. Put your own palette in that file to theme it
+differently.
+
+Two things are deliberately not in the repository: `fastfetch/autostart.on`,
 because it is per-machine state, and your `settings.json` backups, because they
 contain your own local paths.
 

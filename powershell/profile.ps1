@@ -128,6 +128,36 @@ function Test-AppearanceApplied {
     return $false
 }
 
+function Get-WTSchemeNames($Json) {
+    if (-not $Json.PSObject.Properties.Name -contains 'schemes') { return @() }
+    @($Json.schemes | ForEach-Object { $_.name })
+}
+
+function Add-MissingSchemes($Json) {
+    # "colorScheme" is only a name; the palette behind it has to be defined in
+    # settings.json under "schemes". Pointing a profile at a name that is not
+    # defined there makes Windows Terminal show an error dialog and fall back to
+    # default colours - which is what happens on any machine that never imported
+    # the theme by hand. So the definition ships with the repo and gets
+    # installed before anything references it.
+    $file = Join-Path $script:SetupHome 'windows-terminal\schemes.json'
+    if (-not (Test-Path -LiteralPath $file)) { return }
+    $ours = @(Get-Content -LiteralPath $file -Raw -Encoding UTF8 | ConvertFrom-Json)
+    if (-not ($Json.PSObject.Properties.Name -contains 'schemes')) {
+        $Json | Add-Member -NotePropertyName schemes -NotePropertyValue @() -Force
+    }
+    $added = @()
+    foreach ($s in $ours) {
+        if ((Get-WTSchemeNames $Json) -notcontains $s.name) {
+            $Json.schemes = @($Json.schemes) + $s
+            $added += $s.name
+        }
+    }
+    if ($added.Count) {
+        Write-Host "  colour scheme installed: $($added -join ', ')" -ForegroundColor DarkGray
+    }
+}
+
 function Set-TerminalAppearance([bool]$On) {
     $spec = Get-AppearanceSpec
     if (-not $spec) { Write-Warning "windows-terminal\appearance.json is missing"; return $false }
@@ -138,18 +168,29 @@ function Set-TerminalAppearance([bool]$On) {
         return $false
     }
 
+    if ($On) { Add-MissingSchemes $j }
+
     foreach ($prop in $spec.settings.PSObject.Properties) {
-        if ($On) {
-            $v = $prop.Value
-            if ($v -is [string]) {
-                # The placeholder is what makes the folder movable and portable.
-                $v = $v.Replace('{ROOT}', $script:SetupHome)
-                $v = $v.Replace('/', [char]92)
-            }
-            $p | Add-Member -NotePropertyName $prop.Name -NotePropertyValue $v -Force
-        } else {
+        if (-not $On) {
             $p.PSObject.Properties.Remove($prop.Name)
+            continue
         }
+
+        $v = $prop.Value
+        if ($v -is [string]) {
+            # The placeholder is what makes the folder movable and portable.
+            $v = $v.Replace('{ROOT}', $script:SetupHome)
+            $v = $v.Replace('/', [char]92)
+        }
+
+        # Never write a scheme name that has no definition: an unusable value
+        # here is what triggers the error dialog at every startup.
+        if ($prop.Name -eq 'colorScheme' -and (Get-WTSchemeNames $j) -notcontains $v) {
+            Write-Warning "colour scheme '$v' is not defined; keeping the current one"
+            continue
+        }
+
+        $p | Add-Member -NotePropertyName $prop.Name -NotePropertyValue $v -Force
     }
     Save-WTSettings $j
     return $true
