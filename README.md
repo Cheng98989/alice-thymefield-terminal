@@ -68,7 +68,7 @@ further down.
   python -m pip install pillow
   ```
 
-  Any Python 3 will do. If you skip this, `fastfetch icon` says so and gives you
+  Any Python 3 will do. If you skip this, `fastfetch theme` says so and gives you
   that exact command rather than a traceback.
 
 No extra fonts to install: the splash uses characters that are already in the
@@ -152,12 +152,16 @@ fastfetch auto -y         turn it on    (also: on, yes, 1)
 fastfetch auto -n         turn it off   (also: off, no, 0)
 fastfetch auto toggle     flip it
 
-fastfetch icon                show which picture is in use
-fastfetch icon <name>         switch to a character in characters/
-fastfetch icon <file>         import a picture (.png, or a ready .txt)
-fastfetch icon remove <name>  delete a character
-fastfetch reset               put config.jsonc back to the shipped default
+fastfetch theme                        show the active theme and what else exists
+fastfetch theme <name>                 switch to another one
+fastfetch theme <file>                 import a picture as a new theme
+fastfetch theme icon <file | off>      set or drop this theme's picture
+fastfetch theme background <file | off>  set or drop its wallpaper
+fastfetch theme remove <name>          delete a theme
+fastfetch reset                        put config.jsonc back to the shipped default
 ```
+
+`fastfetch icon` still works as an alias for `fastfetch theme`.
 
 Press Tab after any of these to complete character names and switches.
 
@@ -168,34 +172,56 @@ Anything else you type after `fastfetch` goes straight to the real program, so
 
 ## Making it your own
 
-### Change the artwork
+### Themes
 
-Every character lives in its own folder under `fastfetch/characters/`, holding
-the picture and the logo generated from it:
+A theme is a folder under `fastfetch/characters/`. It holds the picture drawn in
+the splash and, optionally, the wallpaper the terminal shows behind everything:
 
 ```
 fastfetch/characters/
 ├─ alice/
-│  ├─ alice.png      the picture
-│  └─ alice.txt      generated from it, this is what the terminal draws
-└─ yourcharacter/
+│  ├─ alice.png        the picture
+│  ├─ alice.txt        generated from it, this is what the terminal draws
+│  └─ background.png   the wallpaper — optional
+└─ yourtheme/
    └─ ...
 ```
 
-Switching between them is instant, and nothing overwrites anything:
+The wallpaper has to be called `background`, any image extension. Everything
+else in the folder is yours to name.
+
+Switching applies both at once, and nothing overwrites anything:
 
 ```powershell
-fastfetch icon alice
+fastfetch theme alice
 ```
+
+**A theme only brings what it has.** One with no `background` clears whatever
+the last theme had, rather than leaving it behind — so a theme is always the
+whole picture, never a partial one left over. A theme with a wallpaper and no
+picture is fine too: the splash draws no logo and the information starts at the
+left margin.
+
+To change one piece of the active theme without touching the rest:
+
+```powershell
+fastfetch theme background C:\path	o\wallpaper.png
+fastfetch theme background off
+fastfetch theme icon C:\path	o\picture.png
+fastfetch theme icon off
+```
+
+Those act on whichever theme is showing. To edit a different one, switch to it
+first.
 
 To bring in a new one, point the command at any picture. It gets a folder of its
 own, is converted, and becomes the current logo:
 
 ```powershell
-fastfetch icon C:\path\to\yourcharacter.png
+fastfetch theme C:\path\to\yourcharacter.png
 ```
 
-Run `fastfetch icon` on its own to see which character is in use and what else
+Run `fastfetch theme` on its own to see which theme is in use and what else
 is available. A folder you drop in by hand shows up there too — selecting it
 converts the picture the first time.
 
@@ -206,7 +232,7 @@ pushed off the screen and the prompt scrolls away. A photo-sized image still
 If you want it anyway:
 
 ```powershell
-fastfetch icon big.png -force
+fastfetch theme big.png -force
 ```
 
 The check runs before anything is copied, so a refusal leaves nothing behind.
@@ -250,7 +276,7 @@ Three ways out, cheapest first:
 To get rid of one:
 
 ```powershell
-fastfetch icon remove yourcharacter
+fastfetch theme remove yourtheme
 ```
 
 It shows what is about to go and asks before deleting; add `-force` to skip the
@@ -293,7 +319,7 @@ Open a character's `.png` in any pixel-art editor (Aseprite, Piskel, even Paint
 if you zoom in), draw over it, save, then feed it back:
 
 ```powershell
-fastfetch icon fastfetch\characters\alice\alice.png
+fastfetch theme icon fastfetch\characters\alice\alice.png
 ```
 
 Any size works — but **keep the height an even number**. Each character on
@@ -324,12 +350,12 @@ python logo-to-png.py characters\alice\alice.txt big.png 10
 ```
 
 Leave the number off when you mean to edit the result and feed it back with
-`fastfetch icon`. The round trip is lossless, so a picture can go back and forth
+`fastfetch theme`. The round trip is lossless, so a picture can go back and forth
 as many times as you like without degrading.
 
 ### Running the conversion by hand
 
-If you would rather not go through `fastfetch icon`, the script underneath is
+If you would rather not go through `fastfetch theme`, the script underneath is
 `logo-from-png.py`, and it prints the numbers for `config.jsonc` itself:
 
 ```powershell
@@ -493,7 +519,7 @@ fastfetch/
   logo-from-png.py       PNG -> txt, after you redraw
   logo-to-png.py         txt -> PNG, to get the image back out
 windows-terminal/
-  appearance.json        the settings "customize on" applies
+  appearance.json        the settings every theme shares
   schemes.json           the colour palette itself
 assets/
   mindscapes/            terminal background images

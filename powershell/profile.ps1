@@ -117,9 +117,17 @@ function Set-LogoBlock([string]$Source, [int]$Width, [int]$Height) {
     if ($end -lt $start) { $end = $text.Length }
 
     $block = $text.Substring($start, $end - $start)
-    $block = [regex]::Replace($block, '"source"\s*:\s*"[^"]*"', '"source": "' + $Source + '"')
-    $block = [regex]::Replace($block, '"width"\s*:\s*\d+',  '"width": '  + $Width)
-    $block = [regex]::Replace($block, '"height"\s*:\s*\d+', '"height": ' + $Height)
+    # "none" is fastfetch's own way of drawing no logo at all, which is what a
+    # theme that carries only a background needs.
+    $type = if ($Source) { 'file-raw' } else { 'none' }
+    $block = [regex]::Replace($block, '"type"\s*:\s*"[^"]*"', '"type": "' + $type + '"', 1)
+    if ($Source) {
+        $block = [regex]::Replace($block, '"source"\s*:\s*"[^"]*"', '"source": "' + $Source + '"')
+        # Left alone when the logo is off: fastfetch validates these even for
+        # type "none" and rejects a zero, so the old values simply stay.
+        $block = [regex]::Replace($block, '"width"\s*:\s*\d+',  '"width": '  + $Width)
+        $block = [regex]::Replace($block, '"height"\s*:\s*\d+', '"height": ' + $Height)
+    }
     Write-Utf8NoBom $file ($text.Substring(0, $start) + $block + $text.Substring($end))
     return $true
 }
@@ -244,18 +252,29 @@ function Show-FastfetchIcon {
         Write-Host "  no logo configured" -ForegroundColor Red
     }
 
+    $bg = Get-ThemeBackground (Get-CurrentCharacterName)
+    Write-Host "  background " -NoNewline
+    if ($bg) { Write-Host (Split-Path -Leaf $bg) -ForegroundColor Green }
+    else     { Write-Host "none" -ForegroundColor DarkGray }
+
     if ($chars.Count) {
         Write-Host ""
         Write-Host "  available"
         foreach ($c in $chars) {
-            $mark = if (-not $c.Txt) { "  (no logo yet - selecting it will convert)" } else { "" }
-            Write-Host "    $($c.Name)$mark" -ForegroundColor DarkGray
+            $bits = @()
+            if (-not $c.Txt -and $c.Png) { $bits += 'converts on first use' }
+            if (-not $c.Txt -and -not $c.Png) { $bits += 'no icon' }
+            if (Get-ThemeBackground $c.Name) { $bits += 'background' }
+            $note = if ($bits.Count) { "  (" + ($bits -join ', ') + ")" } else { "" }
+            Write-Host "    $($c.Name)$note" -ForegroundColor DarkGray
         }
     }
     Write-Host ""
-    Write-Host "  fastfetch icon <name>          switch character" -ForegroundColor DarkGray
-    Write-Host "  fastfetch icon <file.png>      import a new one" -ForegroundColor DarkGray
-    Write-Host "  fastfetch icon remove <name>   delete one" -ForegroundColor DarkGray
+    Write-Host "  fastfetch theme <name>            switch theme" -ForegroundColor DarkGray
+    Write-Host "  fastfetch theme <file.png>        import a new one" -ForegroundColor DarkGray
+    Write-Host "  fastfetch theme icon <file|off>   set this theme's picture" -ForegroundColor DarkGray
+    Write-Host "  fastfetch theme background <file|off>  and its wallpaper" -ForegroundColor DarkGray
+    Write-Host "  fastfetch theme remove <name>     delete one" -ForegroundColor DarkGray
     Write-Host ""
 }
 
@@ -316,6 +335,9 @@ function Use-Character($TxtPath, $Label, [bool]$Force, [bool]$CheckSize) {
     $rel = $TxtPath.Substring($script:FastfetchDir.Length).TrimStart('\', '/').Replace('\', '/')
     if (Set-LogoBlock "%USERPROFILE%/.config/fastfetch/$rel" $m.Width $m.Height) {
         Set-TitleCharacter $newName
+        # The background belongs to the theme, so switching has to reapply the
+        # appearance - but only when it is on, or this would turn it back on.
+        if (Test-AppearanceApplied) { Set-TerminalAppearance $true | Out-Null }
         Write-Host ""
         Write-Host "  character  " -NoNewline; Write-Host $newName -ForegroundColor Green
         Write-Host "  logo       $TxtPath"
@@ -413,6 +435,67 @@ function Remove-CharacterFolder($Name, [bool]$Force) {
     }
 }
 
+function Use-EmptyIcon($Name) {
+    # A theme can carry only a background. fastfetch draws nothing, the
+    # information column starts at the left margin.
+    if (Set-LogoBlock $null 0 0) {
+        Set-TitleCharacter (Get-CharacterDisplayName $Name)
+        if (Test-AppearanceApplied) { Set-TerminalAppearance $true | Out-Null }
+        Write-Host ""
+        Write-Host "  theme      " -NoNewline
+        Write-Host (Get-CharacterDisplayName $Name) -ForegroundColor Green
+        Write-Host "  icon       none - the splash draws no picture"
+        Write-Host "  visible in the next window" -ForegroundColor DarkGray
+        Write-Host ""
+    }
+}
+
+function Set-ThemeBackground($Arg) {
+    $name = Get-CurrentCharacterName
+    if (-not $name) { Write-Host "  no theme is active" -ForegroundColor Red; return }
+    $dir = Join-Path $script:CharactersDir $name
+
+    if ("$Arg" -in 'off', 'none', 'clear', '-clear') {
+        $existing = Get-ThemeBackground $name
+        if (-not $existing) { Write-Host "  $name has no background" -ForegroundColor DarkGray; return }
+        Remove-Item -LiteralPath $existing -Force
+        Write-Host "  background removed from $name" -ForegroundColor Green
+    } else {
+        if (-not (Test-Path -LiteralPath $Arg)) {
+            Write-Host "  no such file: $Arg" -ForegroundColor Red; return
+        }
+        $src = (Resolve-Path -LiteralPath $Arg).Path
+        $ext = [IO.Path]::GetExtension($src).ToLower()
+        if ($ext -notin '.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp') {
+            Write-Host "  '$ext' is not an image Windows Terminal will show" -ForegroundColor Red; return
+        }
+        # One background per theme, so any previous one goes whatever its
+        # extension was - otherwise two would sit there and the older might win.
+        Get-ThemeBackground $name | ForEach-Object { Remove-Item -LiteralPath $_ -Force }
+        Copy-Item -LiteralPath $src -Destination (Join-Path $dir "background$ext") -Force
+        Write-Host "  background of $name set from $(Split-Path -Leaf $src)" -ForegroundColor Green
+    }
+
+    if (Test-AppearanceApplied) {
+        Set-TerminalAppearance $true | Out-Null
+        Write-Host "  applied now" -ForegroundColor DarkGray
+    } else {
+        Write-Host "  the theming is off; it will show with  customize on" -ForegroundColor DarkGray
+    }
+}
+
+function Set-ThemeIcon($Arg, [bool]$Force) {
+    $name = Get-CurrentCharacterName
+    if (-not $name) { Write-Host "  no theme is active" -ForegroundColor Red; return }
+    if ("$Arg" -in 'off', 'none', 'clear', '-clear') {
+        $c = @(Get-Characters) | Where-Object { $_.Name -eq $name } | Select-Object -First 1
+        if ($c -and $c.Txt) { Remove-Item -LiteralPath $c.Txt -Force }
+        Use-EmptyIcon $name
+        return
+    }
+    Set-FastfetchIcon $Arg $Force
+}
+
 function Set-FastfetchIcon($Arg, [bool]$Force) {
     # A bare name selects one of the folders under characters/.
     $existing = @(Get-Characters) | Where-Object { $_.Name -eq $Arg } | Select-Object -First 1
@@ -495,7 +578,8 @@ function fastfetch {
         Reset-FastfetchConfig $f
         return
     }
-    if ($args.Count -ge 1 -and "$($args[0])" -eq 'icon') {
+    # "icon" stays as an alias so the older spelling keeps working.
+    if ($args.Count -ge 1 -and "$($args[0])" -in 'theme', 'icon') {
         $force = $false
         $words = @()
         if ($args.Count -ge 2) {
@@ -504,13 +588,24 @@ function fastfetch {
                 else { $words += "$a" }
             }
         }
-        if ($words.Count -ge 1 -and $words[0] -eq 'reset') { Reset-FastfetchConfig $force }
-        elseif ($words.Count -ge 1 -and $words[0] -eq 'remove') {
-            if ($words.Count -ge 2) { Remove-CharacterFolder $words[1] $force }
-            else { Write-Host "  usage: fastfetch icon remove <name>" }
+        $verb = if ($words.Count -ge 1) { $words[0].ToLower() } else { '' }
+        switch ($verb) {
+            'reset'  { Reset-FastfetchConfig $force }
+            'remove' {
+                if ($words.Count -ge 2) { Remove-CharacterFolder $words[1] $force }
+                else { Write-Host "  usage: fastfetch theme remove <name>" }
+            }
+            'background' {
+                if ($words.Count -ge 2) { Set-ThemeBackground $words[1] }
+                else { Write-Host "  usage: fastfetch theme background <file | off>" }
+            }
+            'icon' {
+                if ($words.Count -ge 2) { Set-ThemeIcon $words[1] $force }
+                else { Write-Host "  usage: fastfetch theme icon <file | off>" }
+            }
+            ''       { Show-FastfetchIcon }
+            default  { Set-FastfetchIcon $words[0] $force }
         }
-        elseif ($words.Count -ge 1) { Set-FastfetchIcon $words[0] $force }
-        else { Show-FastfetchIcon }
         return
     }
     if ($args.Count -ge 1 -and "$($args[0])" -eq 'auto') {
@@ -590,6 +685,42 @@ function Test-AppearanceApplied {
     return $false
 }
 
+# Every Windows Terminal setting this profile owns. Applying works through this
+# list in both directions - a key the merged theme does not define is removed
+# rather than left behind, which is what lets a theme without a background
+# actually clear the previous one.
+$script:ManagedKeys = @('colorScheme', 'backgroundImage', 'backgroundImageOpacity',
+                        'backgroundImageStretchMode', 'backgroundImageAlignment',
+                        'font', 'opacity', 'useAcrylic', 'cursorShape')
+
+function Get-ThemeBackground($Name) {
+    if (-not $Name) { return $null }
+    $dir = Join-Path $script:CharactersDir $Name
+    if (-not (Test-Path -LiteralPath $dir)) { return $null }
+    Get-ChildItem -LiteralPath $dir -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.BaseName -eq 'background' } |
+        Select-Object -First 1 -ExpandProperty FullName
+}
+
+function Get-ThemeLayer($Name) {
+    # What the active character contributes on top of appearance.json: its
+    # background, plus anything an optional theme.json in the folder overrides.
+    $out = [ordered]@{}
+    if (-not $Name) { return $out }
+    $bg = Get-ThemeBackground $Name
+    if ($bg) {
+        $out['backgroundImage'] = $bg
+        $out['backgroundImageOpacity'] = 0.1
+        $out['backgroundImageStretchMode'] = 'uniformToFill'
+    }
+    $manifest = Join-Path (Join-Path $script:CharactersDir $Name) 'theme.json'
+    if (Test-Path -LiteralPath $manifest) {
+        $j = Get-Content -LiteralPath $manifest -Raw -Encoding UTF8 | ConvertFrom-Json
+        foreach ($prop in $j.PSObject.Properties) { $out[$prop.Name] = $prop.Value }
+    }
+    $out
+}
+
 function Get-WTSchemeNames($Json) {
     if (-not $Json.PSObject.Properties.Name -contains 'schemes') { return @() }
     @($Json.schemes | ForEach-Object { $_.name })
@@ -622,7 +753,7 @@ function Add-MissingSchemes($Json) {
 
 function Set-TerminalAppearance([bool]$On) {
     $spec = Get-AppearanceSpec
-    if (-not $spec) { Write-Warning "windows-terminal\appearance.json is missing"; return $false }
+    if (-not $spec) { Write-Warning "windows-terminalppearance.json is missing"; return $false }
     $j = Get-WTSettings
     $guid = Resolve-WTProfileGuid $j $spec
     $p = Get-WTTargetProfile $j $guid
@@ -631,29 +762,39 @@ function Set-TerminalAppearance([bool]$On) {
         return $false
     }
 
-    if ($On) { Add-MissingSchemes $j }
+    # appearance.json holds what every theme shares; the active character layers
+    # its own background and whatever its theme.json overrides on top.
+    $merged = [ordered]@{}
+    if ($On) {
+        Add-MissingSchemes $j
+        foreach ($prop in $spec.settings.PSObject.Properties) {
+            $v = $prop.Value
+            if ($v -is [string]) {
+                # The placeholder is what makes the folder movable and portable.
+                $v = $v.Replace('{ROOT}', $script:SetupHome).Replace('/', [char]92)
+            }
+            $merged[$prop.Name] = $v
+        }
+        foreach ($entry in (Get-ThemeLayer (Get-CurrentCharacterName)).GetEnumerator()) {
+            $merged[$entry.Key] = $entry.Value
+        }
+    }
 
-    foreach ($prop in $spec.settings.PSObject.Properties) {
-        if (-not $On) {
-            $p.PSObject.Properties.Remove($prop.Name)
+    foreach ($key in $script:ManagedKeys) {
+        if (-not $merged.Contains($key)) {
+            # Walking the whole list, not just what is defined, is what lets a
+            # theme with no background clear the one the previous theme set.
+            $p.PSObject.Properties.Remove($key)
             continue
         }
-
-        $v = $prop.Value
-        if ($v -is [string]) {
-            # The placeholder is what makes the folder movable and portable.
-            $v = $v.Replace('{ROOT}', $script:SetupHome)
-            $v = $v.Replace('/', [char]92)
-        }
-
+        $v = $merged[$key]
         # Never write a scheme name that has no definition: an unusable value
         # here is what triggers the error dialog at every startup.
-        if ($prop.Name -eq 'colorScheme' -and (Get-WTSchemeNames $j) -notcontains $v) {
+        if ($key -eq 'colorScheme' -and (Get-WTSchemeNames $j) -notcontains $v) {
             Write-Warning "colour scheme '$v' is not defined; keeping the current one"
             continue
         }
-
-        $p | Add-Member -NotePropertyName $prop.Name -NotePropertyValue $v -Force
+        $p | Add-Member -NotePropertyName $key -NotePropertyValue $v -Force
     }
     Save-WTSettings $j
     return $true
@@ -767,8 +908,11 @@ Register-ArgumentCompleter -Native -CommandName fastfetch -ScriptBlock {
     $sub = if ($tokens.Count -ge 2) { $tokens[1].ToLower() } else { '' }
 
     $suggestions = switch ($sub) {
-        'icon' {
-            if ($tokens.Count -ge 3 -and $tokens[2].ToLower() -eq 'remove') {
+        { $_ -in 'theme', 'icon' } {
+            if ($tokens.Count -ge 3 -and $tokens[2].ToLower() -in 'icon', 'background') {
+                @(New-Completion 'off' 'remove it from this theme')
+            }
+            elseif ($tokens.Count -ge 3 -and $tokens[2].ToLower() -eq 'remove') {
                 @(Get-Characters | ForEach-Object { New-Completion $_.Name 'delete this character' })
             }
             elseif ($tokens.Count -ge 3) {
@@ -777,7 +921,11 @@ Register-ArgumentCompleter -Native -CommandName fastfetch -ScriptBlock {
                 @(Get-Characters | ForEach-Object {
                     $note = if ($_.Txt) { 'character' } else { 'character (converts on first use)' }
                     New-Completion $_.Name $note
-                }) + @(New-Completion 'remove' 'delete a character')
+                }) + @(
+                    (New-Completion 'icon'       "set this theme's picture"),
+                    (New-Completion 'background' "set this theme's wallpaper"),
+                    (New-Completion 'remove'     'delete a theme')
+                )
             }
         }
         'auto' {
@@ -787,7 +935,7 @@ Register-ArgumentCompleter -Native -CommandName fastfetch -ScriptBlock {
         }
         default {
             @(New-Completion 'auto'  'control the startup splash'),
-            @(New-Completion 'icon'  'show or change the character'),
+            @(New-Completion 'theme' 'show or change the theme'),
             @(New-Completion 'reset' 'restore config.jsonc to the default') | ForEach-Object { $_ }
         }
     }

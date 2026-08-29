@@ -2,9 +2,6 @@
   "profileGuid": "default",
   "settings": {
     "colorScheme": "Monokai Pro (Filter Octagon)",
-    "backgroundImage": "{ROOT}/assets/mindscapes/alice_mindscape_nobg.png",
-    "backgroundImageOpacity": 0.1,
-    "backgroundImageStretchMode": "uniformToFill",
     "font": {
       "face": "Cascadia Mono"
     },
