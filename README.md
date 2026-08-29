@@ -124,6 +124,7 @@ customize            show what is currently on
 customize on         turn everything on
 customize off        back to a plain Windows terminal
 customize toggle     flip between the two
+customize save       remember your current look as the "on" state
 ```
 
 `customize off` stops the splash screen and removes the colour scheme,
@@ -133,14 +134,18 @@ looks exactly like a fresh Windows install. `customize on` brings it all back.
 The look changes instantly. The splash screen applies from the next window you
 open.
 
-If you only want to silence the splash but keep the theming:
+To control just the splash and leave the theming alone, there is a separate
+switch for it:
 
 ```
-fastfetch auto off
+fastfetch auto            show whether it is on
+fastfetch auto -y         turn it on    (also: on, yes, 1)
+fastfetch auto -n         turn it off   (also: off, no, 0)
+fastfetch auto toggle     flip it
 ```
 
 Anything else you type after `fastfetch` goes straight to the real program, so
-`fastfetch --version` and the rest keep working normally.
+`fastfetch --version`, `fastfetch -s cpu` and the rest keep working normally.
 
 ---
 
@@ -170,7 +175,16 @@ Two things to know:
   this the text will overlap your picture.
 
 Going the other way — pulling the PNG back out of a logo file — is
-`logo-to-png.py`. Round-tripping does not degrade the image.
+`logo-to-png.py`:
+
+```powershell
+python fastfetch/logo-to-png.py alice-logo.txt recovered.png
+```
+
+Add a number at the end to get it enlarged for a closer look: `10` gives ten
+times the size, nearest-neighbour, so the pixels stay square instead of going
+blurry. Leave the number off when you intend to edit the result and feed it
+back in. Round-tripping does not degrade the image.
 
 ### Change the colours
 
