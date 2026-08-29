@@ -12,3 +12,6 @@ windows-terminal/settings.json.backup
 
 __pycache__/
 *.pyc
+
+# Per-machine undo slot for "fastfetch icon", not repository content.
+fastfetch/alice-logo.previous.png

@@ -142,6 +142,9 @@ fastfetch auto            show whether it is on
 fastfetch auto -y         turn it on    (also: on, yes, 1)
 fastfetch auto -n         turn it off   (also: off, no, 0)
 fastfetch auto toggle     flip it
+
+fastfetch icon            show which picture is in use
+fastfetch icon <file>     install a picture (.png to convert, or a ready .txt)
 ```
 
 Anything else you type after `fastfetch` goes straight to the real program, so
@@ -153,47 +156,55 @@ Anything else you type after `fastfetch` goes straight to the real program, so
 
 ### Change the artwork
 
-`fastfetch/alice-logo.png` is the picture, 44×46 pixels with a transparent
-background. Open it in any pixel-art editor (Aseprite, Piskel, even Paint if
-you zoom in), draw whatever you want, save, then — **from inside the
-`fastfetch` folder** — run:
+Point the `icon` command at any picture and it does the rest:
+
+```powershell
+fastfetch icon C:\path\to\your-character.png
+```
+
+It converts the image, installs it, and writes the new width and height into
+`config.jsonc` for you. Open a new terminal and your picture is there. To see
+what is currently in use, run `fastfetch icon` with nothing after it.
+
+The size numbers matter: they tell fastfetch where to start the text column, so
+a picture of a different size with stale numbers would overlap the art or leave
+a gap in the middle of the screen. Letting the command handle it removes the
+step that is easiest to forget.
+
+The previous picture is kept as `alice-logo.previous.png`, so trying something
+out and changing your mind is one command:
+
+```powershell
+fastfetch icon fastfetch\alice-logo.previous.png
+```
+
+### Drawing your own
+
+`fastfetch/alice-logo.png` is the current picture, 44×46 pixels with a
+transparent background. Open it in any pixel-art editor (Aseprite, Piskel, even
+Paint if you zoom in), draw over it, save, then feed it back:
+
+```powershell
+fastfetch icon fastfetch\alice-logo.png
+```
+
+Any size works, not just 44×46 — but **keep the height an even number**. Each
+character on screen holds two pixels stacked vertically, so an odd height leaves
+half a row over. The converter handles it by adding a blank row, but it is
+tidier to plan for it.
+
+Transparency is what shapes the silhouette: alpha below 128 means the pixel is
+off. Bear in mind the terminal is drawing your image with text, so anything
+finer than a few pixels will not survive — flat shapes and clear colours read
+far better than fine detail.
+
+If you would rather run the conversion by hand, the script underneath is
+`logo-from-png.py`, and it prints the numbers for `config.jsonc` itself:
 
 ```powershell
 cd fastfetch
 python logo-from-png.py alice-logo.png alice-logo.txt
 ```
-
-That converts your PNG into the format fastfetch reads, and prints the full path
-of what it wrote so you can see it went where you expected. Open a new terminal
-and your drawing is there.
-
-### Using a completely different character
-
-Same thing, with two extra steps. Say your picture is `nanami.png`:
-
-```powershell
-cd fastfetch
-python logo-from-png.py nanami.png alice-logo.txt
-```
-
-**Write it to `alice-logo.txt`** — that is the filename `config.jsonc` points at,
-so overwriting it is the whole installation. Keep your PNG under any name you
-like; only the `.txt` has to match. (If you would rather keep separate names,
-change `"source"` in `config.jsonc` instead.)
-
-**Then copy the two numbers it prints** into `config.jsonc`, near the top:
-
-```jsonc
-    "width": 44,
-    "height": 23,
-```
-
-They only stay the same if your picture is exactly 44×46 pixels. Any other size
-and fastfetch will start the text column in the wrong place — overlapping your
-art, or leaving a gap in the middle of the screen. The script tells you the
-right values every time it runs, so there is nothing to work out by hand.
-
-Open a new terminal to see the result.
 
 Two things to know:
 
