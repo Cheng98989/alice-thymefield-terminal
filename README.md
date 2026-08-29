@@ -186,6 +186,20 @@ Run `fastfetch icon` on its own to see which character is in use and what else
 is available. A folder you drop in by hand shows up there too — selecting it
 converts the picture the first time.
 
+Pictures are capped at **64×64 pixels**. The logo takes one terminal column per
+pixel across and one row per two down, so past that the information column gets
+pushed off the screen and the prompt scrolls away. A photo-sized image still
+"works" — it just produces a megabyte of escape codes and an unusable terminal.
+If you want it anyway:
+
+```powershell
+fastfetch icon big.png -force
+```
+
+The check runs before anything is copied, so a refusal leaves nothing behind.
+It only applies on the way in: a character already installed stays selectable,
+forced or not.
+
 The command also writes the new width and height into `config.jsonc`. Those
 numbers tell fastfetch where to start the text column, so leaving them stale
 would overlap the art or leave a gap in the middle of the screen. Letting the

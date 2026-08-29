@@ -74,7 +74,7 @@
     {
       "type": "title",
       "key": " ",
-      "format": "{##DDE2F2}Hey, {##F6F1E2}{user-name}{##625FA6} — {##C5C6F0}Alice{##625FA6} is watching{#}"
+      "format": "{##DDE2F2}Hey, {##F6F1E2}{user-name}{##625FA6} — {##C5C6F0}Alice Chibi{##625FA6} is watching{#}"
     },
     // "break",
 

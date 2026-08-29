@@ -37,6 +37,10 @@ $script:SetupHome = if ($PSScriptRoot) { Split-Path -Parent $PSScriptRoot }
 
 $script:FastfetchDir     = Join-Path $script:SetupHome 'fastfetch'
 $script:CharactersDir    = Join-Path $script:SetupHome 'fastfetch\characters'
+# Both dimensions, in pixels. A logo is as wide in columns as the picture is in
+# pixels and half as tall in rows, so much past this the information column gets
+# pushed off the right edge and the prompt scrolls away. "-force" overrides it.
+$script:IconMaxPixels    = 64
 $script:FastfetchFlag    = Join-Path $script:SetupHome 'fastfetch\autostart.on'
 $script:AppearanceFile   = Join-Path $script:SetupHome 'windows-terminal\appearance.json'
 $script:TerminalSettings = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'
@@ -145,6 +149,31 @@ function Get-Characters {
     }
 }
 
+function Get-ImageSize($Path) {
+    # Read the header only, so an oversized picture is refused before Python is
+    # even started - and never keep the file locked afterwards.
+    try {
+        Add-Type -AssemblyName System.Drawing -ErrorAction Stop
+        $img = [System.Drawing.Image]::FromFile($Path)
+        try { [pscustomobject]@{ Width = $img.Width; Height = $img.Height } }
+        finally { $img.Dispose() }
+    } catch { $null }
+}
+
+function Test-IconSize([int]$Width, [int]$Height, [bool]$Force, [string]$What) {
+    $max = $script:IconMaxPixels
+    if ($Force -or ($Width -le $max -and $Height -le $max)) { return $true }
+    Write-Host ""
+    Write-Host "  $What is $Width x $Height pixels, past the $max x $max limit." -ForegroundColor Red
+    Write-Host "  The logo takes one column per pixel across and one row per two" -ForegroundColor DarkGray
+    Write-Host "  down, so bigger than this pushes the information column off the" -ForegroundColor DarkGray
+    Write-Host "  screen and scrolls the prompt away." -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host "  Resize it, or repeat the command with -force." -ForegroundColor DarkGray
+    Write-Host ""
+    return $false
+}
+
 function Get-CharacterDisplayName([string]$Name) {
     if (-not $Name) { return $null }
     # A name.txt inside the folder wins, for when the folder ended up called
@@ -171,7 +200,8 @@ function Set-TitleCharacter([string]$NewName) {
     if (-not (Test-Path -LiteralPath $file)) { return }
     $text = Get-Content -LiteralPath $file -Raw -Encoding UTF8
 
-    $m = [regex]::Match($text, '//\s*character:[ 	]*(.+?)[ 	]*?
+    $m = [regex]::Match($text, '//\s*character:[ 	]*(.+?)[ 	]*
+?
 ')
     if (-not $m.Success) { return }          # marker removed on purpose: leave the title alone
     $current = $m.Groups[1].Value
@@ -184,7 +214,8 @@ function Set-TitleCharacter([string]$NewName) {
             param($mm)
             $mm.Groups[1].Value + $mm.Groups[2].Value.Replace($current, $NewName) + $mm.Groups[3].Value
         }, 1)
-    $text = [regex]::Replace($text, '(//\s*character:)[ 	]*.+?([ 	]*?
+    $text = [regex]::Replace($text, '(//\s*character:)[ 	]*.+?([ 	]*
+?
 )', "`$1 $NewName`$2", 1)
     Write-Utf8NoBom $file $text
 }
@@ -223,7 +254,9 @@ function Show-FastfetchIcon {
     Write-Host ""
 }
 
-function Convert-CharacterPng($Png) {
+function Convert-CharacterPng($Png, [bool]$Force) {
+    $size = Get-ImageSize $Png
+    if ($size -and -not (Test-IconSize $size.Width $size.Height $Force (Split-Path -Leaf $Png))) { return $null }
     # Writes the logo next to the picture it came from, so each character folder
     # holds its own pair and nothing overwrites anything else.
     $py = Get-PythonExe
@@ -249,10 +282,13 @@ function Convert-CharacterPng($Png) {
     return $txt
 }
 
-function Use-Character($TxtPath, $Label) {
+function Use-Character($TxtPath, $Label, [bool]$Force, [bool]$CheckSize) {
     $newName = Get-CharacterDisplayName $Label
 
     $m = Get-LogoMetrics $TxtPath
+    # Only on the way in: a character already installed stays selectable, or
+    # forcing one past the limit would strand it.
+    if ($CheckSize -and -not (Test-IconSize $m.Width ($m.Height * 2) $Force (Split-Path -Leaf $TxtPath))) { return }
     if ($m.Width -eq 0) {
         Write-Host "  that logo has no printable content" -ForegroundColor Red
         return
@@ -271,15 +307,15 @@ function Use-Character($TxtPath, $Label) {
     }
 }
 
-function Set-FastfetchIcon($Arg) {
+function Set-FastfetchIcon($Arg, [bool]$Force) {
     # A bare name selects one of the folders under characters/.
     $existing = @(Get-Characters) | Where-Object { $_.Name -eq $Arg } | Select-Object -First 1
     if ($existing) {
-        if ($existing.Txt) { Use-Character $existing.Txt $existing.Name; return }
+        if ($existing.Txt) { Use-Character $existing.Txt $existing.Name $Force $false; return }
         if ($existing.Png) {
             Write-Host "  converting $($existing.Name)..." -ForegroundColor DarkGray
-            $txt = Convert-CharacterPng $existing.Png
-            if ($txt) { Use-Character $txt $existing.Name }
+            $txt = Convert-CharacterPng $existing.Png $Force
+            if ($txt) { Use-Character $txt $existing.Name $Force $false }
             return
         }
         Write-Host "  '$Arg' has no .png or .txt in it" -ForegroundColor Red
@@ -305,12 +341,22 @@ function Set-FastfetchIcon($Arg) {
     if ($src.StartsWith($script:CharactersDir, [StringComparison]::OrdinalIgnoreCase)) {
         $name = (Split-Path -Leaf (Split-Path -Parent $src))
         if ($ext -eq '.png') {
-            $txt = Convert-CharacterPng $src
-            if ($txt) { Use-Character $txt $name }
+            $txt = Convert-CharacterPng $src $Force
+            if ($txt) { Use-Character $txt $name $Force $false }
         } else {
-            Use-Character $src $name
+            Use-Character $src $name $Force $true
         }
         return
+    }
+
+    # Check the size before anything is created: refusing after having made a
+    # folder and copied the picture into it leaves litter behind.
+    if ($ext -eq '.png') {
+        $size = Get-ImageSize $src
+        if ($size -and -not (Test-IconSize $size.Width $size.Height $Force (Split-Path -Leaf $src))) { return }
+    } else {
+        $m = Get-LogoMetrics $src
+        if (-not (Test-IconSize $m.Width ($m.Height * 2) $Force (Split-Path -Leaf $src))) { return }
     }
 
     # Coming from outside: give it a folder of its own, named after the file.
@@ -323,16 +369,24 @@ function Set-FastfetchIcon($Arg) {
     Write-Host "  $(if ($isNew) { 'added' } else { 'updated' }) characters\$name" -ForegroundColor DarkGray
 
     if ($ext -eq '.png') {
-        $txt = Convert-CharacterPng $dest
-        if ($txt) { Use-Character $txt $name }
+        $txt = Convert-CharacterPng $dest $Force
+        if ($txt) { Use-Character $txt $name $Force $false }
     } else {
-        Use-Character $dest $name
+        Use-Character $dest $name $Force $false
     }
 }
 
 function fastfetch {
     if ($args.Count -ge 1 -and "$($args[0])" -eq 'icon') {
-        if ($args.Count -ge 2) { Set-FastfetchIcon "$($args[1])" } else { Show-FastfetchIcon }
+        $force = $false
+        $target = $null
+        if ($args.Count -ge 2) {
+            foreach ($a in $args[1..($args.Count - 1)]) {
+                if ("$a" -in '-force', '--force', '-f') { $force = $true }
+                elseif (-not $target) { $target = "$a" }
+            }
+        }
+        if ($target) { Set-FastfetchIcon $target $force } else { Show-FastfetchIcon }
         return
     }
     if ($args.Count -ge 1 -and "$($args[0])" -eq 'auto') {
