@@ -1,4 +1,4 @@
-# Alice Terminal
+# Phaethon Terminal
 
 A pixel-art splash screen for Windows Terminal, with a one-word command to turn
 the whole thing off and get your plain terminal back.
@@ -28,8 +28,8 @@ Three separate things, each of which you can keep or drop:
 2. **A themed Windows Terminal** — colour scheme, background image, transparency.
 3. **One switch for both** — `customize off` puts everything back to stock.
 
-The character is Alice Thymefield from *Zenless Zone Zero*, but nothing here is
-tied to her. Swapping in your own artwork is a couple of commands, described
+The character shown is Alice Thymefield from *Zenless Zone Zero*, but nothing
+here is tied to her. Swapping in your own artwork is a couple of commands, described
 further down.
 
 ---
@@ -81,7 +81,7 @@ font Windows Terminal comes with.
 1. **Download this repository.** If you have git, this is the smoother route:
 
    ```powershell
-   git clone https://github.com/Cheng98989/alice-thymefield-terminal.git
+   git clone https://github.com/Cheng98989/Phaethon-Terminal.git
    ```
 
    Otherwise click the green *Code* button above and choose *Download ZIP*, then
@@ -229,10 +229,10 @@ numbers tell fastfetch where to start the text column, so leaving them stale
 would overlap the art or leave a gap in the middle of the screen. Letting the
 command handle it removes the step that is easiest to forget.
 
-A character folder can hold anything else you want to keep with it. Alice has a
-`sources/` folder with the illustration the pixel art was traced from and an
-older black-and-white rendering — reference material, never read at runtime, and
-safe to delete.
+A character folder can hold anything else you want to keep with it. Material
+that is not needed to draw the splash — the illustrations the pixel art was
+traced from, spare background images — lives in `assets/` instead, so the
+working folders stay down to what the terminal actually reads.
 
 ### The name in the greeting
 
@@ -315,8 +315,8 @@ customize save
 Without that step, an `off` followed by an `on` would restore the previous look,
 because the saved copy would still be the old one.
 
-Your background image can live anywhere, but if you put it in
-`windows-terminal/` next to the existing one it travels with the folder.
+Your background image can live anywhere, but putting it in `assets/mindscapes/`
+next to the others means it travels with the folder.
 
 ### Change what information is shown
 
@@ -430,7 +430,6 @@ fastfetch/
     alice/
       alice.png          the artwork — edit this one
       alice.txt          generated from it; do not edit by hand
-      sources/           the original artwork it was traced from
   config.jsonc           layout, colours, which info to show
   config.default.jsonc   the copy "fastfetch reset" restores from
   requirements.txt       the one library the scripts need
@@ -439,7 +438,9 @@ fastfetch/
 windows-terminal/
   appearance.json        the settings "customize on" applies
   schemes.json           the colour palette itself
-  alice_mindscape_nobg.png
+assets/
+  mindscapes/            terminal background images
+  sources/               original artwork, reference only
 powershell/
   profile.ps1            the real profile; your own tweaks go here too
 ```
@@ -470,7 +471,7 @@ commercially, as long as the copyright notice comes along.
 
 **The artwork is not covered by that licence and must not be sold.** Alice
 Thymefield is a character from *Zenless Zone Zero*. The images in `fastfetch/`
-and `windows-terminal/` are derived from official artwork and are included here
+and `assets/` are derived from official artwork and are included here
 as non-commercial fan work, under HoYoverse's published guidelines for
 derivative works.
 

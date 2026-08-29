@@ -33,7 +33,7 @@
 # Derived from this file's own location (we sit in <setup>\powershell), so the
 # folder can be moved or cloned anywhere without editing a single path.
 $script:SetupHome = if ($PSScriptRoot) { Split-Path -Parent $PSScriptRoot }
-                    else { Join-Path $HOME 'Documents\Customization\terminal' }
+                    else { Join-Path $HOME 'Documents\Customization\Phaethon-Terminal' }
 
 $script:FastfetchDir     = Join-Path $script:SetupHome 'fastfetch'
 $script:CharactersDir    = Join-Path $script:SetupHome 'fastfetch\characters'
