@@ -1,0 +1,14 @@
+# Default: normalize to LF inside the repository.
+* text=auto eol=lf
+
+# PowerShell files are native CRLF on Windows.
+*.ps1 text eol=crlf
+
+# The logo is raw ANSI escape sequences consumed byte for byte by fastfetch.
+# Any line-ending conversion would inject stray CRs into the rendered output,
+# so git must never touch it.
+fastfetch/alice-logo.txt -text
+
+*.png binary
+*.jpg binary
+*.webp binary

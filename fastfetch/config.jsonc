@@ -1,0 +1,220 @@
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/master/doc/json_schema.json",
+
+  // Alice - hand-drawn pixel art rendered with half blocks U+2580/U+2584:
+  // each character holds two pixels, fg = the upper one, bg = the lower one.
+  // Truecolor escapes are already inside the file, hence type "file-raw"
+  // ("file" would only substitute the $1..$9 placeholders).
+  //
+  // The editable source is alice-logo.png, next to this file. After redrawing:
+  //     python logo-from-png.py alice-logo.png alice-logo.txt
+  "logo": {
+    "type": "file-raw",
+    "source": "%USERPROFILE%/Documents/Customization/terminal/fastfetch/alice-logo.txt",
+    "width": 44,
+    "height": 23,
+    "padding": {
+      "top": 1,
+      "left": 2,
+      "right": 3
+    },
+    "printRemaining": true
+  },
+
+  "display": {
+    "separator": " ",
+    "color": {
+      "keys": "#A5A6E4",
+      "title": "#F6F1E2",
+      "output": "#DDE2F2",
+      "separator": "#4E4B85"
+    },
+    "key": {
+      "width": 15
+    },
+    "bar": {
+      "width": 13,
+      "char": {
+        "elapsed": "■",
+        "total": "·"
+      },
+      "border": {
+        "left": "[",
+        "right": "]"
+      },
+      "color": {
+        "elapsed": "#A9A0E8",
+        "total": "#34325A",
+        "border": "#625FA6"
+      }
+    },
+    "percent": {
+      "type": ["num"],
+      "color": {
+        "green": "#8FD3E8",
+        "yellow": "#E8C79B",
+        "red": "#E3A7C7"
+      }
+    }
+  },
+
+  "modules": [
+    {
+      "type": "title",
+      "key": " ",
+      "format": "{##DDE2F2}Hey, {##F6F1E2}{user-name}{##625FA6} — {##C5C6F0}Alice{##625FA6} is watching{#}"
+    },
+    // "break",
+
+    {
+      "type": "custom",
+      "format": "{##4E4B85}┌───────────────────────────{##9BA6DD} Hardware {##4E4B85}───────────────────────────┐{#}"
+    },
+    {
+      "type": "host",
+      "key": "├─ PC",
+      "keyColor": "#9BA6DD",
+      "format": "{name}{?version} // {version}{?}"
+    },
+    {
+      "type": "cpu",
+      "key": "├─ CPU",
+      "keyColor": "#9BA6DD",
+      "format": "{name} ({cores-physical}C / {cores-logical}T) @ {freq-max}"
+    },
+    {
+      "type": "gpu",
+      "key": "├─ GPU",
+      "keyColor": "#9BA6DD",
+      "format": "{name} [{type}] {?dedicated-total}// {dedicated-total}{?}"
+    },
+    {
+      "type": "memory",
+      "key": "├─ RAM",
+      "keyColor": "#9BA6DD",
+      "format": "{used} / {total} {percentage-bar} {percentage}",
+      "percent": {
+        "type": ["bar", "num"]
+      }
+    },
+    {
+      "type": "swap",
+      "key": "├─ SWAP",
+      "keyColor": "#9BA6DD",
+      "format": "{used} / {total} {percentage-bar} {percentage}",
+      "percent": {
+        "type": ["bar", "num"]
+      }
+    },
+    {
+      "type": "disk",
+      "key": "├─ DRIVE",
+      "keyColor": "#9BA6DD",
+      "format": "{mountpoint} {size-used} / {size-total} {size-percentage-bar} {size-percentage}",
+      "percent": {
+        "type": ["bar", "num"]
+      }
+    },
+    {
+      "type": "display",
+      "key": "└─ DISPLAY",
+      "keyColor": "#9BA6DD",
+      "format": "{width}x{height} @ {refresh-rate} Hz [{type}]"
+    },
+    {
+      "type": "custom",
+      "format": "{##4E4B85}└────────────────────────────────────────────────────────────────┘{#}"
+    },
+    // "break",
+
+    {
+      "type": "custom",
+      "format": "{##4E4B85}┌───────────────────────────{##E8C79B} Software {##4E4B85}───────────────────────────┐{#}"
+    },
+    {
+      "type": "os",
+      "key": "├─ OS",
+      "keyColor": "#E8C79B",
+      "format": "{pretty-name} [{arch}]"
+    },
+    {
+      "type": "wm",
+      "key": "├─ WM",
+      "keyColor": "#E8C79B",
+      "format": "{pretty-name}{?version} {version}{?}"
+    },
+    {
+      "type": "shell",
+      "key": "├─ SHELL",
+      "keyColor": "#E8C79B",
+      "format": "{pretty-name}{?version} {version}{?}"
+    },
+    {
+      "type": "terminal",
+      "key": "├─ TERMINAL",
+      "keyColor": "#E8C79B",
+      "format": "{pretty-name}{?version} {version}{?}"
+    },
+    {
+      "type": "locale",
+      "key": "└─ LOCALE",
+      "keyColor": "#E8C79B",
+      "format": "{result}"
+    },
+    {
+      "type": "custom",
+      "format": "{##4E4B85}└────────────────────────────────────────────────────────────────┘{#}"
+    },
+    // "break",
+
+    {
+      "type": "custom",
+      "format": "{##4E4B85}┌───────────────────────────{##8FD3E8} Session {##4E4B85}────────────────────────────┐{#}"
+    },
+    {
+      "type": "users",
+      "key": "├─ LOGIN",
+      "keyColor": "#8FD3E8",
+      "format": "{name} // {login-time}",
+      "myselfOnly": true
+    },
+    {
+      "type": "sound",
+      "key": "└─ AUDIO",
+      "keyColor": "#8FD3E8",
+      "format": "{name}"
+    },
+    {
+      "type": "custom",
+      "format": "{##4E4B85}└────────────────────────────────────────────────────────────────┘{#}"
+    },
+    // "break",
+
+    {
+      "type": "custom",
+      "format": "{##4E4B85}┌────────────────────────{##E3A7C7} Uptime / Date {##4E4B85}─────────────────────────┐{#}"
+    },
+    {
+      "type": "uptime",
+      "key": "├─ UPTIME",
+      "keyColor": "#E3A7C7",
+      "format": "{formatted}"
+    },
+    {
+      "type": "datetime",
+      "key": "└─ DATE",
+      "keyColor": "#E3A7C7",
+      "format": "{year}-{month-pretty}-{day-pretty} {hour-pretty}:{minute-pretty}:{second-pretty}"
+    },
+    {
+      "type": "custom",
+      "format": "{##4E4B85}└────────────────────────────────────────────────────────────────┘{#}"
+    },
+    // "break",
+    {
+      "type": "colors",
+      "symbol": "circle",
+      "paddingLeft": 1
+    }
+  ]
+}

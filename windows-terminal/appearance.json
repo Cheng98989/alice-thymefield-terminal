@@ -1,0 +1,14 @@
+{
+  "profileGuid": "{61c54bbd-c2c6-5271-96e7-009a87ff44bf}",
+  "settings": {
+    "colorScheme": "Monokai Pro (Filter Octagon)",
+    "backgroundImage": "{ROOT}/windows-terminal/alice_mindscape_nobg.png",
+    "backgroundImageOpacity": 0.1,
+    "backgroundImageStretchMode": "uniformToFill",
+    "font": {
+      "face": "Cascadia Mono"
+    },
+    "opacity": 74,
+    "useAcrylic": true
+  }
+}
