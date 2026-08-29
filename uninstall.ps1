@@ -26,6 +26,21 @@ function Ok($t)       { Write-Host "    $t" -ForegroundColor Green }
 function Info($t)     { Write-Host "    $t" -ForegroundColor DarkGray }
 function Warn($t)     { Write-Host "    $t" -ForegroundColor Yellow }
 
+function Invoke-NativeVisible {
+    # Native programs writing to stderr become terminating errors under
+    # $ErrorActionPreference = 'Stop', so the preference is relaxed for the call.
+    # The output is deliberately NOT captured: winget prints progress and can ask
+    # questions, and piping that into a variable buffers everything until the
+    # command ends - a prompt would sit invisible while the script looks frozen,
+    # waiting on an answer nobody was shown.
+    param([scriptblock]$Command)
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try     { & $Command }
+    catch   { Warn "$_" }
+    finally { $ErrorActionPreference = $previous }
+}
+
 Write-Host ""
 Write-Host "  removing the terminal setup -> $Root" -ForegroundColor White
 
@@ -95,8 +110,10 @@ $targets = @(
     Join-Path $HOME 'Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1'
     Join-Path $HOME 'Documents\PowerShell\Microsoft.PowerShell_profile.ps1'
 )
+$seen = 0
 foreach ($t in $targets) {
     if (-not (Test-Path -LiteralPath $t)) { continue }
+    $seen++
     $content = Get-Content -LiteralPath $t -Raw
     if ($content -notmatch 'CustomizationProfile') {
         Info "$(Split-Path -Leaf (Split-Path -Parent $t)): not ours, untouched"
@@ -120,15 +137,17 @@ foreach ($t in $targets) {
         Info $t
     }
 }
+# Say so out loud: a step that prints nothing at all reads as broken even when
+# there was simply nothing left to do.
+if ($seen -eq 0) { Info "no profile found, nothing to remove" }
 
 # ---------------------------------------------------------------- 5. fastfetch
 Step 5 "fastfetch itself"
 if ($RemoveFastfetch) {
-    $previous = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try { winget uninstall --id Fastfetch-cli.Fastfetch 2>&1 | Out-String | Write-Host }
-    catch { Warn "winget said: $_" }
-    finally { $ErrorActionPreference = $previous }
+    Invoke-NativeVisible {
+        winget uninstall --id Fastfetch-cli.Fastfetch --silent `
+               --accept-source-agreements --disable-interactivity
+    }
 } else {
     Info "left installed. Pass -RemoveFastfetch to uninstall it too,"
     Info "or run:  winget uninstall Fastfetch-cli.Fastfetch"

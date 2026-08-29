@@ -40,6 +40,19 @@ function Invoke-Native {
     finally { $ErrorActionPreference = $previous }
 }
 
+function Invoke-NativeVisible {
+    # Same stderr protection, but the output is deliberately NOT captured.
+    # winget prints progress and can ask questions; piping that into a variable
+    # buffers everything until the command ends, so a prompt would sit invisible
+    # while the script looks frozen, waiting on an answer nobody was shown.
+    param([scriptblock]$Command)
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try     { & $Command }
+    catch   { Warn "$_" }
+    finally { $ErrorActionPreference = $previous }
+}
+
 Write-Host ""
 Write-Host "  terminal setup -> $Root" -ForegroundColor White
 
@@ -53,10 +66,11 @@ if ($ff) {
     Info "not found."
     $r = Read-Host "    Install it now with winget? [y/N]"
     if ($r -match '^[yY]') {
-        Invoke-Native {
+        Invoke-NativeVisible {
             winget install --id Fastfetch-cli.Fastfetch --source winget `
-                   --accept-package-agreements --accept-source-agreements
-        } | Write-Host
+                   --accept-package-agreements --accept-source-agreements `
+                   --disable-interactivity
+        }
         Info "reopen the terminal afterwards so PATH picks it up"
     } else {
         Warn "skipped. Install it later with:  winget install Fastfetch-cli.Fastfetch"
