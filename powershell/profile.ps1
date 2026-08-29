@@ -267,7 +267,7 @@ function Convert-CharacterPng($Png, [bool]$Force) {
     $py = Get-PythonExe
     if (-not $py) {
         Write-Host "  converting a .png needs Python." -ForegroundColor Red
-        Write-Host "  Install it from python.org, then:  python -m pip install pillow numpy" -ForegroundColor DarkGray
+        Write-Host "  Install it from python.org, then:  python -m pip install pillow" -ForegroundColor DarkGray
         return $null
     }
     $txt = [IO.Path]::ChangeExtension($Png, '.txt')
@@ -278,9 +278,22 @@ function Convert-CharacterPng($Png, [bool]$Force) {
     $failed = $LASTEXITCODE -ne 0
     $ErrorActionPreference = $previous
     if ($failed -or -not (Test-Path -LiteralPath $tmp) -or (Get-Item $tmp).Length -eq 0) {
-        Write-Host "  conversion failed:" -ForegroundColor Red
-        Write-Host ($out.Trim()) -ForegroundColor DarkGray
         Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+        # A missing library is the common failure on a fresh Python, and a raw
+        # traceback is a poor way to say "run one pip command".
+        if ($out -match "No module named '?(\w+)") {
+            $module = $matches[1]
+            $package = if ($module -eq 'PIL') { 'pillow' } else { $module }
+            Write-Host ""
+            Write-Host "  Python is missing the $package library." -ForegroundColor Red
+            Write-Host "  Install it with:" -ForegroundColor DarkGray
+            Write-Host ""
+            Write-Host "      python -m pip install $package" -ForegroundColor White
+            Write-Host ""
+        } else {
+            Write-Host "  conversion failed:" -ForegroundColor Red
+            Write-Host ($out.Trim()) -ForegroundColor DarkGray
+        }
         return $null
     }
     Move-Item -LiteralPath $tmp -Destination $txt -Force
@@ -463,7 +476,14 @@ function Set-FastfetchIcon($Arg, [bool]$Force) {
 
     if ($ext -eq '.png') {
         $txt = Convert-CharacterPng $dest $Force
-        if ($txt) { Use-Character $txt $name $Force $false }
+        if ($txt) {
+            Use-Character $txt $name $Force $false
+        } elseif ($isNew) {
+            # The folder only existed for this import: leaving it behind after a
+            # failure litters the character list with something unusable.
+            Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host "  removed characters\$name again" -ForegroundColor DarkGray
+        }
     } else {
         Use-Character $dest $name $Force $false
     }

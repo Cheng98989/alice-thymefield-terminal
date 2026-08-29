@@ -59,8 +59,17 @@ further down.
   exposure. What it does not protect you from is you deciding to run something
   you should not have — including this. Read the scripts first.
 
-- **Python** is optional. You only need it if you want to redraw the artwork.
-  Everything else works without it.
+- **Python** is optional. You only need it to convert a picture into a logo —
+  that is, to change the character. Everything else works without it.
+
+  One library, installed once:
+
+  ```powershell
+  python -m pip install pillow
+  ```
+
+  Any Python 3 will do. If you skip this, `fastfetch icon` says so and gives you
+  that exact command rather than a traceback.
 
 No extra fonts to install: the splash uses characters that are already in the
 font Windows Terminal comes with.
@@ -418,6 +427,7 @@ fastfetch/
       sources/           the original artwork it was traced from
   config.jsonc           layout, colours, which info to show
   config.default.jsonc   the copy "fastfetch reset" restores from
+  requirements.txt       the one library the scripts need
   logo-from-png.py       PNG -> txt, after you redraw
   logo-to-png.py         txt -> PNG, to get the image back out
 windows-terminal/
