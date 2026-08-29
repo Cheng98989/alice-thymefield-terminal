@@ -229,6 +229,11 @@ numbers tell fastfetch where to start the text column, so leaving them stale
 would overlap the art or leave a gap in the middle of the screen. Letting the
 command handle it removes the step that is easiest to forget.
 
+A character folder can hold anything else you want to keep with it. Alice has a
+`sources/` folder with the illustration the pixel art was traced from and an
+older black-and-white rendering — reference material, never read at runtime, and
+safe to delete.
+
 ### The name in the greeting
 
 The top line greets you and names the character — *"Hey, Cheng — Alice is
@@ -254,7 +259,7 @@ Open a character's `.png` in any pixel-art editor (Aseprite, Piskel, even Paint
 if you zoom in), draw over it, save, then feed it back:
 
 ```powershell
-fastfetch icon fastfetch\characterslicelice.png
+fastfetch icon fastfetch\characters\alice\alice.png
 ```
 
 Any size works — but **keep the height an even number**. Each character on
@@ -272,7 +277,7 @@ If you would rather run the conversion by hand, the script underneath is
 
 ```powershell
 cd fastfetch
-python logo-from-png.py characterslicelice.png characterslicelice.txt
+python logo-from-png.py characters\alice\alice.png characters\alice\alice.txt
 ```
 
 ### Starting over
@@ -419,6 +424,7 @@ back too. The file it replaced is kept next to it as
 ```
 install.ps1              the installer
 uninstall.ps1            puts everything back
+.gitattributes           keeps git from rewriting line endings in the logos
 fastfetch/
   characters/
     alice/
