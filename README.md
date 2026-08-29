@@ -260,12 +260,17 @@ Delete the folder whenever you like afterwards. Nothing was installed anywhere
 else and nothing was written to the registry.
 
 Your original Windows Terminal settings were saved before anything was changed,
-at `windows-terminal/settings.json.original`. To go back to exactly that:
+at `windows-terminal/settings.json.original`. If Windows Terminal ends up in a
+state you cannot explain, put that file back:
 
 ```powershell
-copy windows-terminal\settings.json.original `
-     $env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json
+.\uninstall.ps1 -RestoreTerminalSettings
 ```
+
+That replaces your `settings.json` wholesale instead of removing settings one by
+one — so anything else you changed in Windows Terminal since installing goes
+back too. The file it replaced is kept next to it as
+`settings.json.before-restore`, in case that was not what you wanted.
 
 ---
 

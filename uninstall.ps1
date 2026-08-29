@@ -11,7 +11,11 @@
 
 [CmdletBinding()]
 param(
-    [switch]$RemoveFastfetch
+    [switch]$RemoveFastfetch,
+    # Overwrite settings.json wholesale with the copy taken before the first
+    # install, instead of removing our keys one by one. The blunt instrument,
+    # for when Windows Terminal is in a state you cannot explain.
+    [switch]$RestoreTerminalSettings
 )
 
 $ErrorActionPreference = 'Stop'
@@ -27,17 +31,35 @@ Write-Host "  removing the terminal setup -> $Root" -ForegroundColor White
 
 # -------------------------------------------------- 1. Windows Terminal look
 Step 1 "Windows Terminal appearance"
-$profileScript = Join-Path $Root 'powershell\profile.ps1'
-if (Test-Path -LiteralPath $profileScript) {
-    . $profileScript
-    if (Set-TerminalAppearance $false) {
-        Ok "colour scheme, background and font removed from your profile"
-        Info "the palette itself stays in your scheme list, harmless and unused"
-    } else {
-        Info "nothing to undo"
-    }
+$wtSettings = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'
+$original   = Join-Path $Root 'windows-terminal\settings.json.original'
+
+if ($RestoreTerminalSettings -and -not (Test-Path -LiteralPath $original)) {
+    Warn "no settings.json.original here - it is written on first install"
+    Info "falling back to removing our settings one by one"
+    $RestoreTerminalSettings = $false
+}
+
+if ($RestoreTerminalSettings) {
+    Copy-Item -LiteralPath $wtSettings -Destination "$wtSettings.before-restore" `
+              -Force -ErrorAction SilentlyContinue
+    Copy-Item -LiteralPath $original -Destination $wtSettings -Force
+    Ok "settings.json replaced with the copy taken before the first install"
+    Warn "anything you changed in Windows Terminal since then is gone with it"
+    Info "the file it replaced is kept as settings.json.before-restore"
 } else {
-    Warn "powershell\profile.ps1 not found, skipping"
+    $profileScript = Join-Path $Root 'powershell\profile.ps1'
+    if (Test-Path -LiteralPath $profileScript) {
+        . $profileScript
+        if (Set-TerminalAppearance $false) {
+            Ok "colour scheme, background and font removed from your profile"
+            Info "the palette itself stays in your scheme list, harmless and unused"
+        } else {
+            Info "nothing to undo"
+        }
+    } else {
+        Warn "powershell\profile.ps1 not found, skipping"
+    }
 }
 
 # ---------------------------------------------------------- 2. autostart flag
