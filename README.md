@@ -155,14 +155,45 @@ Anything else you type after `fastfetch` goes straight to the real program, so
 
 `fastfetch/alice-logo.png` is the picture, 44×46 pixels with a transparent
 background. Open it in any pixel-art editor (Aseprite, Piskel, even Paint if
-you zoom in), draw whatever you want, save, then run:
+you zoom in), draw whatever you want, save, then — **from inside the
+`fastfetch` folder** — run:
 
 ```powershell
-python fastfetch/logo-from-png.py alice-logo.png alice-logo.txt
+cd fastfetch
+python logo-from-png.py alice-logo.png alice-logo.txt
 ```
 
-That converts your PNG into the format fastfetch reads. Open a new terminal and
-your drawing is there.
+That converts your PNG into the format fastfetch reads, and prints the full path
+of what it wrote so you can see it went where you expected. Open a new terminal
+and your drawing is there.
+
+### Using a completely different character
+
+Same thing, with two extra steps. Say your picture is `nanami.png`:
+
+```powershell
+cd fastfetch
+python logo-from-png.py nanami.png alice-logo.txt
+```
+
+**Write it to `alice-logo.txt`** — that is the filename `config.jsonc` points at,
+so overwriting it is the whole installation. Keep your PNG under any name you
+like; only the `.txt` has to match. (If you would rather keep separate names,
+change `"source"` in `config.jsonc` instead.)
+
+**Then copy the two numbers it prints** into `config.jsonc`, near the top:
+
+```jsonc
+    "width": 44,
+    "height": 23,
+```
+
+They only stay the same if your picture is exactly 44×46 pixels. Any other size
+and fastfetch will start the text column in the wrong place — overlapping your
+art, or leaving a gap in the middle of the screen. The script tells you the
+right values every time it runs, so there is nothing to work out by hand.
+
+Open a new terminal to see the result.
 
 Two things to know:
 

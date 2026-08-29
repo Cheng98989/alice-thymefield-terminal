@@ -47,5 +47,12 @@ while out and not out[-1].strip("\033[0m "): out.pop()
 
 open(dst, "w", encoding="utf-8", newline="\n").write("\n".join(out) + "\n")
 used = {px[x, y][:3] for y in range(h) for x in range(w) if px[x, y][3] >= 128}
-print("%s -> %s  (%d colours)" % (os.path.basename(src), os.path.basename(dst), len(used)))
-print('  in config.jsonc -> "width": %d, "height": %d' % (w, len(out)))
+# Absolute paths, so it is always obvious which file was read and where the
+# result landed - the usual mistake is running this from the wrong directory.
+print("read   %s" % os.path.abspath(src))
+print("wrote  %s   (%d colours)" % (os.path.abspath(dst), len(used)))
+print()
+if os.path.basename(dst) != "alice-logo.txt":
+    print('fastfetch reads alice-logo.txt. Either name it that, or point')
+    print('"source" in config.jsonc at this file instead.')
+print('In config.jsonc, set  "width": %d, "height": %d' % (w, len(out)))
