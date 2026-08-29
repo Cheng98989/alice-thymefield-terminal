@@ -312,6 +312,49 @@ function Use-Character($TxtPath, $Label, [bool]$Force, [bool]$CheckSize) {
     }
 }
 
+function Reset-FastfetchConfig([bool]$Force) {
+    # config.default.jsonc is the shipped copy, kept beside the live one rather
+    # than pulled from git: most people arrive here through a downloaded zip and
+    # have no repository to restore from.
+    $file    = Join-Path $script:FastfetchDir 'config.jsonc'
+    $default = Join-Path $script:FastfetchDir 'config.default.jsonc'
+    if (-not (Test-Path -LiteralPath $default)) {
+        Write-Host "  config.default.jsonc is missing, nothing to restore from" -ForegroundColor Red
+        return
+    }
+    if (-not $Force) {
+        Write-Host ""
+        Write-Host "  this replaces config.jsonc with the shipped default" -ForegroundColor Yellow
+        Write-Host "  colours, module list, selected character - all back to how" -ForegroundColor DarkGray
+        Write-Host "  they started. The autostart and the Windows Terminal theme" -ForegroundColor DarkGray
+        Write-Host "  are not touched." -ForegroundColor DarkGray
+        if ((Read-Host "  type y to confirm") -notmatch '^[yY]') {
+            Write-Host "  left alone" -ForegroundColor DarkGray
+            return
+        }
+    }
+    # Keep what is being replaced: a reset is easy to regret.
+    if (Test-Path -LiteralPath $file) {
+        Copy-Item -LiteralPath $file -Destination "$file.backup" -Force
+    }
+    Copy-Item -LiteralPath $default -Destination $file -Force
+    Write-Host "  config.jsonc restored" -ForegroundColor Green
+    Write-Host "  the version it replaced is kept as config.jsonc.backup" -ForegroundColor DarkGray
+
+    # The default names a character that this machine may not have any more.
+    $name = Get-CurrentCharacterName
+    $have = @(Get-Characters)
+    if ($name -and -not ($have | Where-Object { $_.Name -eq $name })) {
+        $next = $have | Where-Object { $_.Txt } | Select-Object -First 1
+        if ($next) {
+            Write-Host "  the default character '$name' is not here, using $($next.Name)" -ForegroundColor DarkGray
+            Use-Character $next.Txt $next.Name $false $false
+        } else {
+            Write-Host "  no characters installed: add one with  fastfetch icon <file.png>" -ForegroundColor Yellow
+        }
+    }
+}
+
 function Get-CurrentCharacterName {
     $src = Get-LogoSource
     if ($src -and $src -match 'characters/([^/]+)/') { $matches[1] } else { $null }
@@ -427,6 +470,11 @@ function Set-FastfetchIcon($Arg, [bool]$Force) {
 }
 
 function fastfetch {
+    if ($args.Count -ge 1 -and "$($args[0])" -eq 'reset') {
+        $f = $args -contains '-force' -or $args -contains '-y' -or $args -contains '-f'
+        Reset-FastfetchConfig $f
+        return
+    }
     if ($args.Count -ge 1 -and "$($args[0])" -eq 'icon') {
         $force = $false
         $words = @()
@@ -436,7 +484,8 @@ function fastfetch {
                 else { $words += "$a" }
             }
         }
-        if ($words.Count -ge 1 -and $words[0] -eq 'remove') {
+        if ($words.Count -ge 1 -and $words[0] -eq 'reset') { Reset-FastfetchConfig $force }
+        elseif ($words.Count -ge 1 -and $words[0] -eq 'remove') {
             if ($words.Count -ge 2) { Remove-CharacterFolder $words[1] $force }
             else { Write-Host "  usage: fastfetch icon remove <name>" }
         }
@@ -717,8 +766,9 @@ Register-ArgumentCompleter -Native -CommandName fastfetch -ScriptBlock {
             @(New-Completion 'toggle' 'flip it') | ForEach-Object { $_ }
         }
         default {
-            @(New-Completion 'auto' 'control the startup splash'),
-            @(New-Completion 'icon' 'show or change the character') | ForEach-Object { $_ }
+            @(New-Completion 'auto'  'control the startup splash'),
+            @(New-Completion 'icon'  'show or change the character'),
+            @(New-Completion 'reset' 'restore config.jsonc to the default') | ForEach-Object { $_ }
         }
     }
     $suggestions | Where-Object { $_.ListItemText -like "$wordToComplete*" }

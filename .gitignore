@@ -13,3 +13,9 @@ windows-terminal/settings.json.backup
 __pycache__/
 *.pyc
 
+
+# Written by "fastfetch reset" before it replaces the live config.
+fastfetch/config.jsonc.backup
+
+# Written by "fastfetch reset" before it replaces the live config.
+fastfetch/config.jsonc.backup

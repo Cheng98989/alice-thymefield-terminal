@@ -120,7 +120,7 @@ skips it. Rerun it after moving the folder somewhere else.
 ## Turning it on and off
 
 ```
-customize            show what is currently on
+customize            show what is currently on   (also: status)
 customize on         turn everything on
 customize off        back to a plain Windows terminal
 customize toggle     flip between the two
@@ -143,10 +143,14 @@ fastfetch auto -y         turn it on    (also: on, yes, 1)
 fastfetch auto -n         turn it off   (also: off, no, 0)
 fastfetch auto toggle     flip it
 
-fastfetch icon            show which picture is in use
-fastfetch icon <name>     switch to a character in characters/
-fastfetch icon <file>     import a picture (.png to convert, or a ready .txt)
+fastfetch icon                show which picture is in use
+fastfetch icon <name>         switch to a character in characters/
+fastfetch icon <file>         import a picture (.png, or a ready .txt)
+fastfetch icon remove <name>  delete a character
+fastfetch reset               put config.jsonc back to the shipped default
 ```
+
+Press Tab after any of these to complete character names and switches.
 
 Anything else you type after `fastfetch` goes straight to the real program, so
 `fastfetch --version`, `fastfetch -s cpu` and the rest keep working normally.
@@ -179,12 +183,11 @@ To bring in a new one, point the command at any picture. It gets a folder of its
 own, is converted, and becomes the current logo:
 
 ```powershell
-fastfetch icon C:\path	o\yourcharacter.png
+fastfetch icon C:\path\to\yourcharacter.png
 ```
 
 Run `fastfetch icon` on its own to see which character is in use and what else
-is available, and press Tab after `fastfetch icon ` to cycle through the names
-without typing them. `customize` and `fastfetch auto` complete too. A folder you drop in by hand shows up there too — selecting it
+is available. A folder you drop in by hand shows up there too — selecting it
 converts the picture the first time.
 
 Pictures are capped at **64×64 pixels**. The logo takes one terminal column per
@@ -262,6 +265,22 @@ If you would rather run the conversion by hand, the script underneath is
 cd fastfetch
 python logo-from-png.py characterslicelice.png characterslicelice.txt
 ```
+
+### Starting over
+
+If you have edited `config.jsonc` into a corner:
+
+```powershell
+fastfetch reset
+```
+
+That puts colours, module list and selected character back to how they shipped,
+from `config.default.jsonc` kept beside it — not from git, since most people
+arrive through a downloaded zip and have no repository to restore from. It asks
+first, and keeps what it replaced as `config.jsonc.backup`.
+
+It touches nothing else: the startup switch and the Windows Terminal theme stay
+as they are. Use `customize off` for those.
 
 ### Change the colours
 
@@ -398,6 +417,7 @@ fastfetch/
       alice.txt          generated from it; do not edit by hand
       sources/           the original artwork it was traced from
   config.jsonc           layout, colours, which info to show
+  config.default.jsonc   the copy "fastfetch reset" restores from
   logo-from-png.py       PNG -> txt, after you redraw
   logo-to-png.py         txt -> PNG, to get the image back out
 windows-terminal/
