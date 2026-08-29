@@ -200,23 +200,27 @@ function Set-TitleCharacter([string]$NewName) {
     if (-not (Test-Path -LiteralPath $file)) { return }
     $text = Get-Content -LiteralPath $file -Raw -Encoding UTF8
 
-    $m = [regex]::Match($text, '//\s*character:[ 	]*(.+?)[ 	]*
-?
-')
+    $m = [regex]::Match($text, '//[ ]*character:[ ]*(.+)')
     if (-not $m.Success) { return }          # marker removed on purpose: leave the title alone
-    $current = $m.Groups[1].Value
-    if ($current -eq $NewName) { return }
+    $current = $m.Groups[1].Value.Trim()
+    if (-not $current -or $current -eq $NewName) { return }
 
-    $text = [regex]::Replace(
-        $text,
-        '(?s)("type"\s*:\s*"title".*?"format"\s*:\s*")([^"]*)(")',
-        {
-            param($mm)
-            $mm.Groups[1].Value + $mm.Groups[2].Value.Replace($current, $NewName) + $mm.Groups[3].Value
-        }, 1)
-    $text = [regex]::Replace($text, '(//\s*character:)[ 	]*.+?([ 	]*
-?
-)', "`$1 $NewName`$2", 1)
+    # Only proceed if the title really contains what the marker claims.
+    # Advancing the marker after a substitution that matched nothing lets the
+    # two drift apart, and the next switch then replaces a partial name: with
+    # the marker reading "Yeshunguang" while the title said "Yeshunguang Chibi",
+    # selecting Alice produced "Alice Chibi".
+    $titleRx = '(?s)("type"\s*:\s*"title".*?"format"\s*:\s*")([^"]*)(")'
+    $tm = [regex]::Match($text, $titleRx)
+    if (-not $tm.Success -or -not $tm.Groups[2].Value.Contains($current)) { return }
+
+    $text = [regex]::Replace($text, $titleRx, {
+        param($x)
+        $x.Groups[1].Value + $x.Groups[2].Value.Replace($current, $NewName) + $x.Groups[3].Value
+    }, 1)
+    $text = [regex]::Replace($text, '(//[ ]*character:)[ ]*(.+)', {
+        param($x) $x.Groups[1].Value + ' ' + $NewName
+    }, 1)
     Write-Utf8NoBom $file $text
 }
 
@@ -617,6 +621,64 @@ function customize {
     }
     Write-Host "  fastfetch   applies to the next window" -ForegroundColor DarkGray
     Write-Host ""
+}
+
+# ------------------------------------------------------ tab completion ------
+
+function New-Completion($Text, $Tooltip) {
+    # Names with a space in them have to come back quoted or the shell would
+    # read them as two arguments.
+    $insert = if ($Text -match '\s') { "'" + $Text.Replace("'", "''") + "'" } else { $Text }
+    [System.Management.Automation.CompletionResult]::new(
+        $insert, $Text, 'ParameterValue', $(if ($Tooltip) { $Tooltip } else { $Text }))
+}
+
+# -Native rather than -ParameterName: the fastfetch function takes $args so that
+# everything it does not recognise reaches the real binary untouched, and there
+# are no declared parameters for a completer to attach to. Registering it as
+# native still fires for a function that shadows a command of the same name.
+Register-ArgumentCompleter -Native -CommandName fastfetch -ScriptBlock {
+    param($wordToComplete, $commandAst, $cursorPosition)
+
+    $tokens = @($commandAst.CommandElements | ForEach-Object { "$_" })
+    # The partial word is already in the element list; drop it to see what came
+    # before, which is what decides the kind of completion.
+    if ($wordToComplete -and $tokens.Count -gt 1) { $tokens = @($tokens[0..($tokens.Count - 2)]) }
+    $sub = if ($tokens.Count -ge 2) { $tokens[1].ToLower() } else { '' }
+
+    $suggestions = switch ($sub) {
+        'icon' {
+            if ($tokens.Count -ge 3) {
+                @(New-Completion '-force' 'use a picture past the size limit')
+            } else {
+                @(Get-Characters | ForEach-Object {
+                    $note = if ($_.Txt) { 'character' } else { 'character (converts on first use)' }
+                    New-Completion $_.Name $note
+                })
+            }
+        }
+        'auto' {
+            @(New-Completion '-y' 'run fastfetch at startup'),
+            @(New-Completion '-n' 'do not run it at startup'),
+            @(New-Completion 'toggle' 'flip it') | ForEach-Object { $_ }
+        }
+        default {
+            @(New-Completion 'auto' 'control the startup splash'),
+            @(New-Completion 'icon' 'show or change the character') | ForEach-Object { $_ }
+        }
+    }
+    $suggestions | Where-Object { $_.ListItemText -like "$wordToComplete*" }
+}
+
+Register-ArgumentCompleter -Native -CommandName customize -ScriptBlock {
+    param($wordToComplete, $commandAst, $cursorPosition)
+    @(New-Completion 'status' 'show what is on'),
+    @(New-Completion 'on'     'turn everything on'),
+    @(New-Completion 'off'    'back to the stock terminal'),
+    @(New-Completion 'toggle' 'flip it'),
+    @(New-Completion 'save'   'remember the current look') |
+        ForEach-Object { $_ } |
+        Where-Object { $_.ListItemText -like "$wordToComplete*" }
 }
 
 # ---------------------------------------------------------------- startup ----

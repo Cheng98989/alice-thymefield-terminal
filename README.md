@@ -183,7 +183,8 @@ fastfetch icon C:\path	o\yourcharacter.png
 ```
 
 Run `fastfetch icon` on its own to see which character is in use and what else
-is available. A folder you drop in by hand shows up there too — selecting it
+is available, and press Tab after `fastfetch icon ` to cycle through the names
+without typing them. `customize` and `fastfetch auto` complete too. A folder you drop in by hand shows up there too — selecting it
 converts the picture the first time.
 
 Pictures are capped at **64×64 pixels**. The logo takes one terminal column per
