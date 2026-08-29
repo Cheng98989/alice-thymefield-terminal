@@ -259,6 +259,27 @@ yourself later.
 Delete the folder whenever you like afterwards. Nothing was installed anywhere
 else and nothing was written to the registry.
 
+### Putting the script permission back
+
+The one thing the uninstaller deliberately leaves alone is the execution policy,
+because it never set it — you did, by hand, before installing. Undoing a
+security setting on your behalf is not something a script should decide.
+
+If you changed it only to run this, hand it back:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Undefined
+```
+
+`Undefined` removes your setting rather than replacing it with another one, so
+the policy goes back to being inherited instead of set — which is what "as it
+was before" actually means. Check the result with `Get-ExecutionPolicy -List`.
+
+**Skip this if you already had `RemoteSigned` for something else**, or your own
+scripts stop running too. Note also that once script execution is disallowed,
+Windows stops loading PowerShell profiles at all — harmless after uninstalling,
+worth knowing if you keep other things in yours.
+
 Your original Windows Terminal settings were saved before anything was changed,
 at `windows-terminal/settings.json.original`. If Windows Terminal ends up in a
 state you cannot explain, put that file back:
