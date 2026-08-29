@@ -1,254 +1,279 @@
-# Terminal setup
+# Alice Terminal
 
-Windows Terminal dressed up: a hand-drawn pixel-art fastfetch splash, a themed
-colour scheme and background, and a single switch to turn all of it off and get
-the stock Windows terminal back.
+A pixel-art splash screen for Windows Terminal, with a one-word command to turn
+the whole thing off and get your plain terminal back.
 
-![](fastfetch/alice-logo.png)
+![What it looks like](docs/screenshot.png)
 
-Everything is self-contained and path-independent — clone it anywhere, run
-`install.ps1`, done. No administrator privileges, no Nerd Font required.
-
-```
-terminal/
-├─ install.ps1            setup on a fresh machine
-├─ fastfetch/             startup splash: logo, config, helper scripts
-│  └─ sources/            original artwork the logo came from
-├─ windows-terminal/      appearance + background image
-└─ powershell/            profile.ps1, the real shell profile
-```
-
----
-
-## Master switch
-
-```
-customize            show current state
-customize on         turn everything on
-customize off        back to the stock Windows terminal
-customize toggle     flip it
-customize save       re-read the current Windows Terminal appearance
-                     and store it as the "on" state
-```
-
-`customize off` does two things: it stops fastfetch from running at startup and
-strips colour scheme, background image and font from the Windows Terminal
-profile. The terminal looks exactly like a fresh Windows install. `customize on`
-puts it all back.
-
-The appearance changes **immediately**, because Windows Terminal reloads its own
-`settings.json`. Fastfetch applies from the next window.
-
-### customize save
-
-If you change the look from Windows Terminal's own settings (scheme, background,
-opacity, font) and want that to become the new "on" state, run `customize save`:
-it re-reads the profile and updates `windows-terminal/appearance.json`. Without
-that step, an `off` followed by an `on` would restore the previous look.
+> ### Written by AI
+>
+> Every file in this repository — the scripts, the configuration, this README —
+> was written by Claude (Anthropic's AI) across one long conversation, with me
+> steering it and testing the results. The pixel art started as an automated
+> conversion of official artwork and was then touched up by hand.
+>
+> It works on my machine and every piece was tested as it was built, but treat
+> it like any script you find on the internet: have a look at what it does
+> before you run it. The code is commented specifically so that reading it is
+> not a chore.
 
 ---
 
-## fastfetch/
+## What it does
 
-Prints system specs with Alice as the logo whenever a terminal opens.
+Three separate things, each of which you can keep or drop:
 
-| file | |
-|---|---|
-| `alice-logo.png` | **the pixel art, 44×46 px.** This is the file to edit |
-| `alice-logo.txt` | generated from the PNG, this is what fastfetch reads. Do not hand-edit |
-| `config.jsonc` | layout, colours, which modules to show |
-| `logo-from-png.py` | PNG → txt, after you have redrawn the image |
-| `logo-to-png.py` | txt → PNG, to pull the image back out of a logo |
-| `autostart.on` | empty marker file: if it exists, fastfetch runs at startup |
+1. **A splash screen when you open a terminal** — system specs next to a
+   pixel-art character, drawn by [fastfetch](https://github.com/fastfetch-cli/fastfetch).
+2. **A themed Windows Terminal** — colour scheme, background image, transparency.
+3. **One switch for both** — `customize off` puts everything back to stock.
 
-### Editing the artwork
-
-Open `alice-logo.png` in a pixel-art editor, save, then:
-
-```powershell
-cd <repo>\fastfetch
-python logo-from-png.py alice-logo.png alice-logo.txt
-```
-
-The PNG → txt → PNG round trip is lossless, verified pixel by pixel: you can
-iterate as often as you like without the image degrading.
-
-**Two constraints.** Height must be even, because each terminal character holds
-two vertical pixels (half blocks `▀`/`▄`): 46 px = 23 text rows. And if you
-change the dimensions, the script prints the new values to copy into
-`config.jsonc` under `width` and `height` — fastfetch needs them to know where
-the module column starts. Leave them stale and the text either overlaps the logo
-or leaves a gap.
-
-The PNG has a transparent background: alpha below 128 means the pixel is off.
-
-Requires `pillow` and `numpy`.
-
-### sources/
-
-Starting material, unused at runtime — safe to delete.
-
-| file | |
-|---|---|
-| `alice_chibi.png` | the original illustration, 929×967 |
-| `chibi_ascii.txt` | an older black-and-white ASCII rendering, no longer used |
-
-The live artwork is `../alice-logo.png`; there is no copy of it here, that file
-*is* the original. To activate an alternative you drop into this folder:
-
-```powershell
-cd <repo>\fastfetch
-copy sources\<name>.png alice-logo.png
-python logo-from-png.py alice-logo.png alice-logo.txt
-```
-
-### How it reaches the screen
-
-Each character is a half block with the foreground colour painting the upper
-pixel and the background colour the lower one: two pixels per cell, so twice the
-vertical resolution of a solid glyph. The truecolor escapes are already inside
-the `.txt`, which is why `config.jsonc` uses type `file-raw` and not `file` —
-`file` would only substitute the nine `$1..$9` placeholders.
-
-**No Nerd Font needed.** Half blocks and box-drawing characters are plain
-Unicode, present in Cascadia Mono which Windows Terminal ships with.
-
-### Why there is a junction
-
-fastfetch looks for its config in `~/.config/fastfetch`. That path is a
-**junction** pointing at `fastfetch/` in this repo, so the files live here while
-`fastfetch` still works from any shell — PowerShell, cmd, Git Bash.
-
-Move or rename the folder and the junction breaks. Recreate it with
-`install.ps1`, or by hand:
-
-```powershell
-Remove-Item ~\.config\fastfetch -Force
-New-Item -ItemType Junction -Path ~\.config\fastfetch -Target <repo>\fastfetch
-```
+The character is Alice Thymefield from *Zenless Zone Zero*, but nothing here is
+tied to her. Swapping in your own artwork is a couple of commands, described
+further down.
 
 ---
 
-## windows-terminal/
+## Requirements
 
-| file | |
-|---|---|
-| `appearance.json` | the settings `customize on` applies to Windows Terminal |
-| `alice_mindscape_nobg.png` | the background image |
-| `settings.json.original` | your Windows Terminal without the customizations |
-| `settings.json.backup` | rolling copy, rewritten before every change |
+- **Windows 10 or 11.** Nothing else to install by hand — the installer offers
+  to fetch fastfetch for you.
+- **Windows Terminal.** It ships with Windows 11. On Windows 10 you can get it
+  from the Microsoft Store. Without it, the splash screen still works; only the
+  theming step is skipped.
+- **Permission to run scripts.** Windows blocks PowerShell scripts by default.
+  Paste this once, and answer `Y`:
 
-The two `settings.json.*` files are machine-specific and stay out of version
-control.
+  ```powershell
+  Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+  ```
 
-In `appearance.json` the image path uses the `{ROOT}` placeholder, swapped at
-apply time for the repo's real location — that is what lets you move or clone
-the folder without breaking the background.
+  This affects your user account only, not the whole machine, and it does not
+  require administrator rights. It allows scripts stored locally on your PC to
+  run, while still blocking unsigned ones downloaded from the internet. To see
+  what it is set to right now: `Get-ExecutionPolicy -List`.
 
-`profileGuid` selects which Windows Terminal profile everything applies to.
-`{61c54bbd-c2c6-5271-96e7-009a87ff44bf}` is the Windows PowerShell one, and it
-is the same on every machine because Windows Terminal derives it deterministically.
+- **Python** is optional. You only need it if you want to redraw the artwork.
+  Everything else works without it.
 
-If something goes wrong, restore by hand:
-
-```powershell
-copy <repo>\windows-terminal\settings.json.original `
-     $env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json
-```
-
----
-
-## powershell/
-
-`profile.ps1` is the real shell profile. The file at
-`Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1` is only a loader
-pointing here, so the customization lives entirely in this folder. Put your
-aliases and functions in here too.
-
-The profile derives the folder location from itself, so it contains no hardcoded
-paths: move the repo wherever you want and just rerun `install.ps1` to update
-the loader.
-
-### fastfetch autostart alone
-
-```
-fastfetch auto            show state
-fastfetch auto -y         on      (also: on, yes, 1)
-fastfetch auto -n         off     (also: off, no, 0)
-fastfetch auto toggle     flip it
-```
-
-Any other argument is forwarded straight to the binary, so `fastfetch --version`
-and `fastfetch -s cpu` keep working.
-
-The state is the `fastfetch/autostart.on` file, not a line inside the profile:
-flipping it creates or deletes that file and never rewrites the script, so a bad
-toggle cannot leave you without a configured shell.
-
-The logo only runs in **interactive** sessions. The profile is loaded by
-`powershell -Command "..."` too, and without that guard the logo would end up
-inside the output of every script.
+No extra fonts to install: the splash uses characters that are already in the
+font Windows Terminal comes with.
 
 ---
 
 ## Install
 
-Clone or copy the folder anywhere, then:
+1. **Download this repository.** Either click the green *Code* button above and
+   choose *Download ZIP*, then unzip it wherever you like, or if you have git:
 
-```powershell
-cd <repo>
-.\install.ps1
+   ```powershell
+   git clone https://github.com/Cheng98989/alice-thymefield-terminal.git
+   ```
+
+   The folder can live anywhere. Documents, Desktop, a second drive — it does
+   not matter, nothing is hardcoded.
+
+2. **Open PowerShell in that folder.** In File Explorer, right-click inside the
+   folder and pick *Open in Terminal*.
+
+3. **Run the installer:**
+
+   ```powershell
+   .\install.ps1
+   ```
+
+   It walks through six steps and tells you what it is doing at each one. If
+   fastfetch is missing it asks before installing it. Nothing needs
+   administrator rights.
+
+4. **Open a new terminal window.** The splash appears.
+
+If you want to try it without letting it touch your Windows Terminal settings,
+run `.\install.ps1 -NoAppearance`. To install it but keep the splash off until
+you ask for it, use `.\install.ps1 -NoAutostart`.
+
+Running the installer again is harmless — it checks what is already done and
+skips it. Rerun it after moving the folder somewhere else.
+
+---
+
+## Turning it on and off
+
+```
+customize            show what is currently on
+customize on         turn everything on
+customize off        back to a plain Windows terminal
+customize toggle     flip between the two
 ```
 
-No administrator privileges needed. The script is **idempotent**: rerun it as
-often as you like, for instance after moving the folder.
+`customize off` stops the splash screen and removes the colour scheme,
+background image and transparency from your terminal profile. Your terminal
+looks exactly like a fresh Windows install. `customize on` brings it all back.
 
-| option | |
-|---|---|
-| `-NoAppearance` | leave Windows Terminal's `settings.json` untouched |
-| `-NoAutostart` | install everything but keep fastfetch off at startup |
+The look changes instantly. The splash screen applies from the next window you
+open.
 
-### What it does
+If you only want to silence the splash but keep the theming:
 
-1. **fastfetch** — if missing, offers `winget install Fastfetch-cli.Fastfetch`
-2. **Python** — a check only: needed solely to regenerate the logo after
-   redrawing it, not to use the setup. Warns and moves on if absent
-3. **PowerShell profile** — writes the loader for Windows PowerShell 5.1 and,
-   when present, PowerShell 7. An existing profile of your own is never
-   overwritten: it is backed up and appended to
-4. **junction** — creates `~/.config/fastfetch` pointing at this folder
-5. **appearance** — applies scheme, background and font to Windows Terminal,
-   after saving `windows-terminal/settings.json.original` (first run only)
-6. **autostart** — turns fastfetch on
-
-### Without Windows Terminal
-
-Step 5 is skipped with a warning. Everything else works: fastfetch runs in any
-terminal with truecolor support.
-
-### Requirements
-
-- Windows 10/11 with PowerShell 5.1 (ships with the OS)
-- execution policy at least `RemoteSigned` for the current user. Check with
-  `Get-ExecutionPolicy -List`; a profile that never loads is almost always this.
-  Change it yourself — the installer does not touch security settings
-- **no Nerd Font**: the stock fonts are enough
-
-### Uninstall
-
-```powershell
-customize off                              # turn the customizations off
-Remove-Item ~\.config\fastfetch -Force     # drop the junction
-Remove-Item $PROFILE                       # drop the loader
+```
+fastfetch auto off
 ```
 
-The folder stays intact and you can reinstall whenever you want.
+Anything else you type after `fastfetch` goes straight to the real program, so
+`fastfetch --version` and the rest keep working normally.
+
+---
+
+## Making it your own
+
+### Change the artwork
+
+`fastfetch/alice-logo.png` is the picture, 44×46 pixels with a transparent
+background. Open it in any pixel-art editor (Aseprite, Piskel, even Paint if
+you zoom in), draw whatever you want, save, then run:
+
+```powershell
+python fastfetch/logo-from-png.py alice-logo.png alice-logo.txt
+```
+
+That converts your PNG into the format fastfetch reads. Open a new terminal and
+your drawing is there.
+
+Two things to know:
+
+- **Keep the height an even number.** Each character on screen holds two pixels
+  stacked vertically, so an odd height leaves half a row hanging. The script
+  handles it by adding a blank row, but it is tidier to plan for it.
+- **If you change the size**, the script prints two numbers at the end. Copy
+  them into `fastfetch/config.jsonc`, into the `width` and `height` lines near
+  the top. Those tell fastfetch where the text column should start; if you skip
+  this the text will overlap your picture.
+
+Going the other way — pulling the PNG back out of a logo file — is
+`logo-to-png.py`. Round-tripping does not degrade the image.
+
+### Change the colours
+
+`fastfetch/config.jsonc` is plain text with comments. The hex colours are
+grouped near the top under `display`, and each panel has its own accent colour
+(`#9BA6DD` for Hardware, `#E8C79B` for Software, and so on). Change them, save,
+open a new terminal.
+
+### Change the background or transparency
+
+Do it the normal way, through Windows Terminal's own settings UI. Then tell the
+setup to remember your new look as the "on" state:
+
+```
+customize save
+```
+
+Without that step, an `off` followed by an `on` would restore the previous look,
+because the saved copy would still be the old one.
+
+Your background image can live anywhere, but if you put it in
+`windows-terminal/` next to the existing one it travels with the folder.
+
+### Change what information is shown
+
+The `modules` list in `fastfetch/config.jsonc` is the whole splash screen, top
+to bottom. Delete an entry you do not care about, or copy one and change its
+`type`. `fastfetch --list-modules` prints everything available.
+
+The `// "break"` lines are commented out on purpose — uncomment them if you
+prefer blank lines between the panels.
+
+### Add your own shell tweaks
+
+`powershell/profile.ps1` is your actual PowerShell profile. Aliases, functions,
+prompt tweaks — put them at the bottom of that file and they load with
+everything else.
+
+---
+
+## How it works
+
+Not required reading, but useful if you want to change something deeper.
+
+**The picture is text.** Each character on screen is a "half block" — a glyph
+that fills the top or bottom half of its cell. Colouring the foreground and the
+background separately gives two pixels per character, which is why the artwork
+looks like pixel art and not like ASCII art. The colours are baked into
+`alice-logo.txt` as escape codes, which is why `config.jsonc` loads it as
+`file-raw` rather than `file`.
+
+**A junction keeps the files here.** fastfetch always looks in
+`~/.config/fastfetch`. Rather than scattering files there, the installer makes
+that path a junction (a Windows folder shortcut) pointing back into this repo.
+Files stay in one place, and fastfetch works from PowerShell, cmd or Git Bash
+alike.
+
+**Switch state lives outside the scripts.** Whether the splash runs is decided
+by an empty file, `fastfetch/autostart.on` — present means on. Flipping the
+switch creates or deletes that file and never rewrites the profile script, so a
+bad toggle can never leave you with a broken shell. It is also in `.gitignore`,
+so turning things on and off never shows up as a pending change.
+
+**The splash knows when to stay quiet.** Your profile is loaded by background
+scripts too, not just by terminal windows. Without a guard the artwork would end
+up in the middle of other programs' output, so it checks for a genuinely
+interactive session first.
+
+---
+
+## Uninstall
+
+```powershell
+customize off
+Remove-Item ~\.config\fastfetch -Force
+Remove-Item $PROFILE
+```
+
+Line by line: the first turns the theming and splash off, the second removes the
+folder shortcut, the third removes the small file that loads the profile.
+
+Then delete the folder itself, if you want. Nothing was installed anywhere else
+and nothing was written to the registry. If you also want fastfetch gone:
+`winget uninstall Fastfetch-cli.Fastfetch`.
+
+Your original Windows Terminal settings were saved before anything was changed,
+at `windows-terminal/settings.json.original`. To go back to exactly that:
+
+```powershell
+copy windows-terminal\settings.json.original `
+     $env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json
+```
+
+---
+
+## What is in here
+
+```
+install.ps1              the installer
+fastfetch/
+  alice-logo.png         the artwork — edit this one
+  alice-logo.txt         generated from the PNG; do not edit by hand
+  config.jsonc           layout, colours, which info to show
+  logo-from-png.py       PNG -> txt, after you redraw
+  logo-to-png.py         txt -> PNG, to get the image back out
+  sources/               the original artwork it was traced from
+windows-terminal/
+  appearance.json        the settings "customize on" applies
+  alice_mindscape_nobg.png
+powershell/
+  profile.ps1            the real profile; your own tweaks go here too
+```
+
+Two files are deliberately not in the repository: `fastfetch/autostart.on`,
+because it is per-machine state, and your `settings.json` backups, because they
+contain your own local paths.
 
 ---
 
 ## Credits
 
 Alice Thymefield is a character from *Zenless Zone Zero* by HoYoverse. The
-artwork in `fastfetch/sources/` and `windows-terminal/` is fan material included
-for personal use; all rights belong to the original creators. The scripts and
-configuration are free to reuse.
+artwork here is fan material included for personal use and all rights belong to
+the original creators — swap it for your own if you plan to build on this.
+
+Scripts and configuration are free to reuse, modify and share.
