@@ -117,10 +117,24 @@ function Get-AppearanceSpec {
     Get-Content -LiteralPath $script:AppearanceFile -Raw -Encoding UTF8 | ConvertFrom-Json
 }
 
+function Resolve-WTProfileGuid($Json, $Spec) {
+    # "default" means: whichever profile this machine actually opens. Pinning a
+    # GUID would theme a profile the user may never look at - the built-in
+    # Windows PowerShell one is identical on every machine, so it is portable in
+    # the literal sense, but plenty of people run PowerShell 7, WSL or the
+    # command prompt as their default and would see fastfetch appear with no
+    # theming and no clue why. Put a real GUID in appearance.json to pin it.
+    if ($Spec -and $Spec.profileGuid -and $Spec.profileGuid -ne 'default') {
+        return $Spec.profileGuid
+    }
+    $Json.defaultProfile
+}
+
 function Test-AppearanceApplied {
     $spec = Get-AppearanceSpec
     if (-not $spec) { return $false }
-    $p = Get-WTTargetProfile (Get-WTSettings) $spec.profileGuid
+    $j = Get-WTSettings
+    $p = Get-WTTargetProfile $j (Resolve-WTProfileGuid $j $spec)
     if (-not $p) { return $false }
     foreach ($n in $spec.settings.PSObject.Properties.Name) {
         if ($p.PSObject.Properties.Name -contains $n) { return $true }
@@ -162,9 +176,10 @@ function Set-TerminalAppearance([bool]$On) {
     $spec = Get-AppearanceSpec
     if (-not $spec) { Write-Warning "windows-terminal\appearance.json is missing"; return $false }
     $j = Get-WTSettings
-    $p = Get-WTTargetProfile $j $spec.profileGuid
+    $guid = Resolve-WTProfileGuid $j $spec
+    $p = Get-WTTargetProfile $j $guid
     if (-not $p) {
-        Write-Warning "profile $($spec.profileGuid) not found in Windows Terminal"
+        Write-Warning "profile $guid not found in Windows Terminal"
         return $false
     }
 
@@ -200,7 +215,7 @@ function Save-CurrentAppearance {
     $spec = Get-AppearanceSpec
     $j = Get-WTSettings
     if (-not $j) { Write-Warning "Windows Terminal not found"; return }
-    $guid = if ($spec) { $spec.profileGuid } else { $j.defaultProfile }
+    $guid = Resolve-WTProfileGuid $j $spec
     $p = Get-WTTargetProfile $j $guid
     if (-not $p) { Write-Warning "profile not found"; return }
 
@@ -222,7 +237,10 @@ function Save-CurrentAppearance {
         Write-Warning "the profile has none of the managed settings: nothing to save"
         return
     }
-    $out = [ordered]@{ profileGuid = $guid; settings = $snap }
+    # Write "default" back unless a specific profile was pinned on purpose:
+    # baking this machine's GUID in would make the file machine-specific again.
+    $stored = if ($spec -and $spec.profileGuid -and $spec.profileGuid -ne 'default') { $guid } else { 'default' }
+    $out = [ordered]@{ profileGuid = $stored; settings = $snap }
     $dir = Split-Path -Parent $script:AppearanceFile
     if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
     $out | ConvertTo-Json -Depth 16 | Set-Content -LiteralPath $script:AppearanceFile -Encoding UTF8

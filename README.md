@@ -335,6 +335,12 @@ That is why the palette travels in `schemes.json` and gets added to your list
 before anything points at it. Put your own palette in that file to theme it
 differently.
 
+`profileGuid` in the same file says `"default"`, meaning whichever profile your
+Windows Terminal actually opens. If you run PowerShell 7, WSL or the command
+prompt as your default, the theming follows you there. Replace it with a real
+GUID (copy it from your `settings.json`) if you would rather pin it to one
+specific profile.
+
 Two things are deliberately not in the repository: `fastfetch/autostart.on`,
 because it is per-machine state, and your `settings.json` backups, because they
 contain your own local paths.
@@ -347,8 +353,21 @@ The scripts, the configuration and this documentation are released under the
 [MIT licence](LICENSE) — free to use, modify and redistribute, including
 commercially, as long as the copyright notice comes along.
 
-**The artwork is not covered by that licence.** Alice Thymefield is a character
-from *Zenless Zone Zero* by HoYoverse; the images in `fastfetch/` and
-`windows-terminal/` are fan material included for personal use, and all rights
-belong to the original creators. If you are building something on top of this,
-swap in artwork of your own — the setup does not care which picture it draws.
+**The artwork is not covered by that licence and must not be sold.** Alice
+Thymefield is a character from *Zenless Zone Zero*. The images in `fastfetch/`
+and `windows-terminal/` are derived from official artwork and are included here
+as non-commercial fan work, under HoYoverse's published guidelines for
+derivative works.
+
+> © All rights reserved by miHoYo
+>
+> Other properties and any right, title, and interest thereof and therein
+> (intellectual property rights included) not derived from Zenless Zone Zero
+> belong to their respective owners.
+
+No rights in that material are transferred by the MIT licence above, and nothing
+here should be read as an official endorsement or partnership. Those guidelines
+permit this kind of personal, non-commercial use; they do not permit selling
+anything made from official assets, so if you are building something commercial
+on top of this, swap in artwork of your own. The setup does not care which
+picture it draws.
