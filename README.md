@@ -213,6 +213,35 @@ The check runs before anything is copied, so a refusal leaves nothing behind.
 It only applies on the way in: a character already installed stays selectable,
 forced or not.
 
+### If the splash does not fit the window
+
+The picture decides how much room the splash needs: it takes one terminal column
+per pixel across and one row per two down, with the information column beside
+it. With the 44×46 artwork it ships with, the whole thing wants about **116
+columns by 28 rows**. Your own picture moves those numbers.
+
+If the window is narrower the lines wrap and the layout falls apart; if it is
+shorter the top scrolls away before you can read it. Whether that happens
+depends on your screen, your font size and how large you keep the window — the
+same setup can look right on one machine and wrap on another.
+
+Three ways out, cheapest first:
+
+- **Make the font smaller.** `Ctrl` `-` in Windows Terminal, or set the size
+  under *Settings → Profiles → Appearance*. A smaller font is more columns.
+- **Fix the window size.** Windows Terminal opens at whatever size it was left
+  at, but you can pin it by adding these next to the other global settings in
+  `settings.json` (*Settings → Open JSON file*):
+
+  ```jsonc
+  "initialCols": 120,
+  "initialRows": 32,
+  ```
+
+  They are global settings, siblings of `defaultProfile` — not inside a profile.
+- **Use a smaller picture.** Halving the artwork halves both numbers, and at
+  these sizes the drawing usually survives it better than you would expect.
+
 To get rid of one:
 
 ```powershell
@@ -230,9 +259,9 @@ would overlap the art or leave a gap in the middle of the screen. Letting the
 command handle it removes the step that is easiest to forget.
 
 A character folder can hold anything else you want to keep with it. Material
-that is not needed to draw the splash — the illustrations the pixel art was
-traced from, spare background images — lives in `assets/` instead, so the
-working folders stay down to what the terminal actually reads.
+that is not needed to draw the splash — spare background images, the artwork
+something was traced from — belongs in `assets/` instead, so the working folders
+stay down to what the terminal actually reads.
 
 ### The name in the greeting
 
@@ -272,7 +301,30 @@ off. Bear in mind the terminal is drawing your image with text, so anything
 finer than a few pixels will not survive — flat shapes and clear colours read
 far better than fine detail.
 
-If you would rather run the conversion by hand, the script underneath is
+### Getting the picture back out
+
+If you have a `.txt` logo but not the picture it came from — someone sent you
+one, or you deleted the PNG — `logo-to-png.py` reverses the conversion:
+
+```powershell
+cd fastfetch
+python logo-to-png.py characterslicelice.txt recovered.png
+```
+
+Add a number to enlarge it for a closer look, nearest-neighbour so the pixels
+stay square instead of going blurry:
+
+```powershell
+python logo-to-png.py characterslicelice.txt big.png 10
+```
+
+Leave the number off when you mean to edit the result and feed it back with
+`fastfetch icon`. The round trip is lossless, so a picture can go back and forth
+as many times as you like without degrading.
+
+### Running the conversion by hand
+
+If you would rather not go through `fastfetch icon`, the script underneath is
 `logo-from-png.py`, and it prints the numbers for `config.jsonc` itself:
 
 ```powershell
@@ -440,7 +492,6 @@ windows-terminal/
   schemes.json           the colour palette itself
 assets/
   mindscapes/            terminal background images
-  sources/               original artwork, reference only
 powershell/
   profile.ps1            the real profile; your own tweaks go here too
 ```
