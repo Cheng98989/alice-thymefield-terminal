@@ -53,6 +53,12 @@ further down.
   run, while still blocking unsigned ones downloaded from the internet. To see
   what it is set to right now: `Get-ExecutionPolicy -List`.
 
+  Worth knowing: this is a guard against running something by accident, not a
+  security wall. Anyone can bypass it with a command-line flag, and real malware
+  always does, so allowing local scripts does not meaningfully widen your
+  exposure. What it does not protect you from is you deciding to run something
+  you should not have — including this. Read the scripts first.
+
 - **Python** is optional. You only need it if you want to redraw the artwork.
   Everything else works without it.
 
@@ -63,12 +69,14 @@ font Windows Terminal comes with.
 
 ## Install
 
-1. **Download this repository.** Either click the green *Code* button above and
-   choose *Download ZIP*, then unzip it wherever you like, or if you have git:
+1. **Download this repository.** If you have git, this is the smoother route:
 
    ```powershell
    git clone https://github.com/Cheng98989/alice-thymefield-terminal.git
    ```
+
+   Otherwise click the green *Code* button above and choose *Download ZIP*, then
+   unzip it wherever you like.
 
    The folder can live anywhere. Documents, Desktop, a second drive — it does
    not matter, nothing is hardcoded.
@@ -76,7 +84,19 @@ font Windows Terminal comes with.
 2. **Open PowerShell in that folder.** In File Explorer, right-click inside the
    folder and pick *Open in Terminal*.
 
-3. **Run the installer:**
+3. **If you downloaded the ZIP, unblock the files:**
+
+   ```powershell
+   Get-ChildItem -Recurse | Unblock-File
+   ```
+
+   Windows tags everything that comes out of a downloaded archive as "from the
+   internet", and refuses to run scripts marked that way even after you have
+   allowed local scripts. Skip this and step 4 fails with *"is not digitally
+   signed"*. `git clone` does not leave that tag, which is why cloning avoids
+   the whole thing.
+
+4. **Run the installer:**
 
    ```powershell
    .\install.ps1
@@ -86,7 +106,7 @@ font Windows Terminal comes with.
    fastfetch is missing it asks before installing it. Nothing needs
    administrator rights.
 
-4. **Open a new terminal window.** The splash appears.
+5. **Open a new terminal window.** The splash appears.
 
 If you want to try it without letting it touch your Windows Terminal settings,
 run `.\install.ps1 -NoAppearance`. To install it but keep the splash off until
