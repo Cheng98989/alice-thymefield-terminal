@@ -229,16 +229,21 @@ Three ways out, cheapest first:
 
 - **Make the font smaller.** `Ctrl` `-` in Windows Terminal, or set the size
   under *Settings → Profiles → Appearance*. A smaller font is more columns.
-- **Fix the window size.** Windows Terminal opens at whatever size it was left
-  at, but you can pin it by adding these next to the other global settings in
-  `settings.json` (*Settings → Open JSON file*):
+- **Fix the window size.** In Windows Terminal press `Ctrl` `,` to open
+  settings, then *Startup → Launch size*, and set **Columns** and **Rows**. It
+  is the same settings window you use for the background image, the font and
+  the colour scheme.
+
+  The same thing in `settings.json`, if you prefer editing it directly
+  (*Settings → Open JSON file*):
 
   ```jsonc
   "initialCols": 120,
   "initialRows": 32,
   ```
 
-  They are global settings, siblings of `defaultProfile` — not inside a profile.
+  Those are global settings, siblings of `defaultProfile` — not inside a
+  profile, which is where they get put by mistake.
 - **Use a smaller picture.** Halving the artwork halves both numbers, and at
   these sizes the drawing usually survives it better than you would expect.
 
