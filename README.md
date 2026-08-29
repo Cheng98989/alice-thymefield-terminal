@@ -270,10 +270,14 @@ contain your own local paths.
 
 ---
 
-## Credits
+## Licence and credits
 
-Alice Thymefield is a character from *Zenless Zone Zero* by HoYoverse. The
-artwork here is fan material included for personal use and all rights belong to
-the original creators — swap it for your own if you plan to build on this.
+The scripts, the configuration and this documentation are released under the
+[MIT licence](LICENSE) — free to use, modify and redistribute, including
+commercially, as long as the copyright notice comes along.
 
-Scripts and configuration are free to reuse, modify and share.
+**The artwork is not covered by that licence.** Alice Thymefield is a character
+from *Zenless Zone Zero* by HoYoverse; the images in `fastfetch/` and
+`windows-terminal/` are fan material included for personal use, and all rights
+belong to the original creators. If you are building something on top of this,
+swap in artwork of your own — the setup does not care which picture it draws.
