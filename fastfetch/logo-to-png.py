@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Extract the editable PNG out of a fastfetch .txt logo.
 
-    python logo-to-png.py alice-logo.txt alice-logo.png [zoom]
+    python logo-to-png.py character.txt character.png [zoom]
 
 The .txt uses half blocks: U+2580 with fg = upper pixel and bg = lower pixel,
 U+2584 with fg = lower pixel and the upper one transparent. This walks that

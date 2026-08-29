@@ -36,6 +36,7 @@ $script:SetupHome = if ($PSScriptRoot) { Split-Path -Parent $PSScriptRoot }
                     else { Join-Path $HOME 'Documents\Customization\terminal' }
 
 $script:FastfetchDir     = Join-Path $script:SetupHome 'fastfetch'
+$script:CharactersDir    = Join-Path $script:SetupHome 'fastfetch\characters'
 $script:FastfetchFlag    = Join-Path $script:SetupHome 'fastfetch\autostart.on'
 $script:AppearanceFile   = Join-Path $script:SetupHome 'windows-terminal\appearance.json'
 $script:TerminalSettings = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'
@@ -99,7 +100,7 @@ function Get-LogoMetrics($TxtPath) {
     [pscustomobject]@{ Width = $w; Height = $lines.Count }
 }
 
-function Set-LogoMetrics([int]$Width, [int]$Height) {
+function Set-LogoBlock([string]$Source, [int]$Width, [int]$Height) {
     # config.jsonc carries comments, so it must never go through a JSON parser -
     # that would silently strip them. And "width" appears again under display,
     # so the edit is confined to the text of the logo block.
@@ -112,118 +113,172 @@ function Set-LogoMetrics([int]$Width, [int]$Height) {
     if ($end -lt $start) { $end = $text.Length }
 
     $block = $text.Substring($start, $end - $start)
+    $block = [regex]::Replace($block, '"source"\s*:\s*"[^"]*"', '"source": "' + $Source + '"')
     $block = [regex]::Replace($block, '"width"\s*:\s*\d+',  '"width": '  + $Width)
     $block = [regex]::Replace($block, '"height"\s*:\s*\d+', '"height": ' + $Height)
     Write-Utf8NoBom $file ($text.Substring(0, $start) + $block + $text.Substring($end))
     return $true
 }
 
+function Get-LogoSource {
+    $file = Join-Path $script:FastfetchDir 'config.jsonc'
+    if (-not (Test-Path -LiteralPath $file)) { return $null }
+    $text = Get-Content -LiteralPath $file -Raw -Encoding UTF8
+    $m = [regex]::Match($text, '"source"\s*:\s*"([^"]*)"')
+    if ($m.Success) { $m.Groups[1].Value } else { $null }
+}
+
+function Get-Characters {
+    if (-not (Test-Path -LiteralPath $script:CharactersDir)) { return @() }
+    Get-ChildItem -LiteralPath $script:CharactersDir -Directory | ForEach-Object {
+        # A character is just a folder. The picture and the logo inside can be
+        # named anything, so a redraw does not have to be renamed to fit.
+        $txt = Get-ChildItem -LiteralPath $_.FullName -Filter *.txt -File | Select-Object -First 1
+        $png = Get-ChildItem -LiteralPath $_.FullName -Filter *.png -File | Select-Object -First 1
+        [pscustomobject]@{
+            Name = $_.Name
+            Dir  = $_.FullName
+            Txt  = if ($txt) { $txt.FullName } else { $null }
+            Png  = if ($png) { $png.FullName } else { $null }
+        }
+    }
+}
+
 function Show-FastfetchIcon {
-    $txt = Join-Path $script:FastfetchDir 'alice-logo.txt'
-    $png = Join-Path $script:FastfetchDir 'alice-logo.png'
+    $current = Get-LogoSource
+    $chars   = @(Get-Characters)
     Write-Host ""
-    if (Test-Path -LiteralPath $txt) {
-        $m = Get-LogoMetrics $txt
-        Write-Host "  icon    " -NoNewline; Write-Host $txt -ForegroundColor Green
-        Write-Host "  size    $($m.Width) x $($m.Height) characters  ($($m.Width) x $($m.Height * 2) pixels)"
+    if ($current) {
+        $leaf = Split-Path -Leaf $current
+        $active = $chars | Where-Object { $_.Txt -and (Split-Path -Leaf $_.Txt) -eq $leaf } | Select-Object -First 1
+        Write-Host "  character  " -NoNewline
+        Write-Host $(if ($active) { $active.Name } else { $leaf }) -ForegroundColor Green
+        $file = Join-Path $script:FastfetchDir (($current -split 'fastfetch/', 2)[-1])
+        if (Test-Path -LiteralPath $file) {
+            $m = Get-LogoMetrics $file
+            Write-Host "  size       $($m.Width) x $($m.Height) characters  ($($m.Width) x $($m.Height * 2) pixels)"
+        } else {
+            Write-Host "  file       missing: $current" -ForegroundColor Red
+        }
     } else {
-        Write-Host "  icon    " -NoNewline; Write-Host "missing: $txt" -ForegroundColor Red
-    }
-    if (Test-Path -LiteralPath $png) {
-        Write-Host "  source  $png"
-    }
-    Write-Host ""
-    Write-Host "  fastfetch icon <file.png>   draw a new one from an image" -ForegroundColor DarkGray
-    Write-Host "  fastfetch icon <file.txt>   install a ready-made logo" -ForegroundColor DarkGray
-    Write-Host ""
-}
-
-function Backup-CurrentIcon($Incoming) {
-    # Setting an icon overwrites the editable PNG, and trying icons out is
-    # exactly what this command invites - so the one being replaced is kept in a
-    # single slot. Not versioned: it is a per-machine undo, not repository
-    # content.
-    $png  = Join-Path $script:FastfetchDir 'alice-logo.png'
-    $prev = Join-Path $script:FastfetchDir 'alice-logo.previous.png'
-    if (-not (Test-Path -LiteralPath $png)) { return }
-    # Restoring FROM the backup slot is the obvious way to undo, and backing up
-    # first would overwrite the very file about to be installed.
-    if ($Incoming -and (Resolve-Path -LiteralPath $Incoming).Path -eq $prev) { return }
-    Copy-Item -LiteralPath $png -Destination $prev -Force
-}
-
-function Set-FastfetchIcon($Path) {
-    if (-not (Test-Path -LiteralPath $Path)) {
-        Write-Host "  no such file: $Path" -ForegroundColor Red
-        return
-    }
-    $src = (Resolve-Path -LiteralPath $Path).Path
-    $ext = [IO.Path]::GetExtension($src).ToLower()
-    $txt = Join-Path $script:FastfetchDir 'alice-logo.txt'
-    $png = Join-Path $script:FastfetchDir 'alice-logo.png'
-
-    if ($ext -eq '.png') {
-        $py = Get-PythonExe
-        if (-not $py) {
-            Write-Host "  a .png has to be converted, and that needs Python." -ForegroundColor Red
-            Write-Host "  Install it from python.org, then:  python -m pip install pillow numpy" -ForegroundColor DarkGray
-            Write-Host "  Or pass an already converted .txt instead." -ForegroundColor DarkGray
-            return
-        }
-        # Write to a temporary file first: a conversion that fails must not be
-        # able to leave a half-written logo behind, nor touch config.jsonc.
-        $tmp = [IO.Path]::GetTempFileName()
-        $previous = $ErrorActionPreference
-        $ErrorActionPreference = 'Continue'
-        $out = & $py (Join-Path $script:FastfetchDir 'logo-from-png.py') $src $tmp 2>&1 | Out-String
-        $failed = $LASTEXITCODE -ne 0
-        $ErrorActionPreference = $previous
-        if ($failed -or -not (Test-Path -LiteralPath $tmp) -or (Get-Item $tmp).Length -eq 0) {
-            Write-Host "  conversion failed:" -ForegroundColor Red
-            Write-Host ($out.Trim()) -ForegroundColor DarkGray
-            Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
-            return
-        }
-        Move-Item -LiteralPath $tmp -Destination $txt -Force
-        # Keep the editable PNG next to the logo it produced, so the two never
-        # drift apart and a later redraw starts from what is actually on screen.
-        if ((Resolve-Path -LiteralPath $src).Path -ne $png) {
-            Backup-CurrentIcon $src
-            Copy-Item -LiteralPath $src -Destination $png -Force
-        }
-    }
-    elseif ($ext -eq '.txt') {
-        $m = Get-LogoMetrics $src
-        if ($m.Width -eq 0) {
-            Write-Host "  that .txt has no printable content" -ForegroundColor Red
-            return
-        }
-        Backup-CurrentIcon $src
-        Copy-Item -LiteralPath $src -Destination $txt -Force
-        # Refresh the editable PNG from the logo, so "the .png is the source of
-        # the .txt" keeps being true after installing a ready-made one.
-        $py = Get-PythonExe
-        if ($py) {
-            $previous = $ErrorActionPreference
-            $ErrorActionPreference = 'Continue'
-            & $py (Join-Path $script:FastfetchDir 'logo-to-png.py') $txt $png 2>&1 | Out-Null
-            $ErrorActionPreference = $previous
-        }
-    }
-    else {
-        Write-Host "  unsupported file type '$ext'. Give it a .png to convert," -ForegroundColor Red
-        Write-Host "  or a .txt that is already a logo." -ForegroundColor DarkGray
-        return
+        Write-Host "  no logo configured" -ForegroundColor Red
     }
 
-    $m = Get-LogoMetrics $txt
-    if (Set-LogoMetrics $m.Width $m.Height) {
+    if ($chars.Count) {
         Write-Host ""
-        Write-Host "  icon set" -ForegroundColor Green
-        Write-Host "  from    $src"
-        Write-Host "  size    $($m.Width) x $($m.Height) characters, written into config.jsonc"
+        Write-Host "  available"
+        foreach ($c in $chars) {
+            $mark = if (-not $c.Txt) { "  (no logo yet - selecting it will convert)" } else { "" }
+            Write-Host "    $($c.Name)$mark" -ForegroundColor DarkGray
+        }
+    }
+    Write-Host ""
+    Write-Host "  fastfetch icon <name>       switch character" -ForegroundColor DarkGray
+    Write-Host "  fastfetch icon <file.png>   import a new one" -ForegroundColor DarkGray
+    Write-Host ""
+}
+
+function Convert-CharacterPng($Png) {
+    # Writes the logo next to the picture it came from, so each character folder
+    # holds its own pair and nothing overwrites anything else.
+    $py = Get-PythonExe
+    if (-not $py) {
+        Write-Host "  converting a .png needs Python." -ForegroundColor Red
+        Write-Host "  Install it from python.org, then:  python -m pip install pillow numpy" -ForegroundColor DarkGray
+        return $null
+    }
+    $txt = [IO.Path]::ChangeExtension($Png, '.txt')
+    $tmp = [IO.Path]::GetTempFileName()
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $out = & $py (Join-Path $script:FastfetchDir 'logo-from-png.py') $Png $tmp 2>&1 | Out-String
+    $failed = $LASTEXITCODE -ne 0
+    $ErrorActionPreference = $previous
+    if ($failed -or -not (Test-Path -LiteralPath $tmp) -or (Get-Item $tmp).Length -eq 0) {
+        Write-Host "  conversion failed:" -ForegroundColor Red
+        Write-Host ($out.Trim()) -ForegroundColor DarkGray
+        Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+        return $null
+    }
+    Move-Item -LiteralPath $tmp -Destination $txt -Force
+    return $txt
+}
+
+function Use-Character($TxtPath, $Label) {
+    $m = Get-LogoMetrics $TxtPath
+    if ($m.Width -eq 0) {
+        Write-Host "  that logo has no printable content" -ForegroundColor Red
+        return
+    }
+    # Relative to the fastfetch folder, behind the junction: stays correct
+    # wherever the repository was cloned.
+    $rel = $TxtPath.Substring($script:FastfetchDir.Length).TrimStart('\', '/').Replace('\', '/')
+    if (Set-LogoBlock "%USERPROFILE%/.config/fastfetch/$rel" $m.Width $m.Height) {
+        Write-Host ""
+        Write-Host "  character  " -NoNewline; Write-Host $Label -ForegroundColor Green
+        Write-Host "  logo       $TxtPath"
+        Write-Host "  size       $($m.Width) x $($m.Height) characters, written into config.jsonc"
         Write-Host "  visible in the next window" -ForegroundColor DarkGray
         Write-Host ""
+    }
+}
+
+function Set-FastfetchIcon($Arg) {
+    # A bare name selects one of the folders under characters/.
+    $existing = @(Get-Characters) | Where-Object { $_.Name -eq $Arg } | Select-Object -First 1
+    if ($existing) {
+        if ($existing.Txt) { Use-Character $existing.Txt $existing.Name; return }
+        if ($existing.Png) {
+            Write-Host "  converting $($existing.Name)..." -ForegroundColor DarkGray
+            $txt = Convert-CharacterPng $existing.Png
+            if ($txt) { Use-Character $txt $existing.Name }
+            return
+        }
+        Write-Host "  '$Arg' has no .png or .txt in it" -ForegroundColor Red
+        return
+    }
+
+    if (-not (Test-Path -LiteralPath $Arg)) {
+        Write-Host "  no character or file called '$Arg'" -ForegroundColor Red
+        $names = @(Get-Characters | ForEach-Object { $_.Name })
+        if ($names.Count) { Write-Host "  available: $($names -join ', ')" -ForegroundColor DarkGray }
+        return
+    }
+
+    $src = (Resolve-Path -LiteralPath $Arg).Path
+    $ext = [IO.Path]::GetExtension($src).ToLower()
+    if ($ext -ne '.png' -and $ext -ne '.txt') {
+        Write-Host "  unsupported file type '$ext'. Give it a .png to convert," -ForegroundColor Red
+        Write-Host "  a .txt that is already a logo, or the name of a character." -ForegroundColor DarkGray
+        return
+    }
+
+    # Already inside characters/? Then use it where it lies instead of copying.
+    if ($src.StartsWith($script:CharactersDir, [StringComparison]::OrdinalIgnoreCase)) {
+        $name = (Split-Path -Leaf (Split-Path -Parent $src))
+        if ($ext -eq '.png') {
+            $txt = Convert-CharacterPng $src
+            if ($txt) { Use-Character $txt $name }
+        } else {
+            Use-Character $src $name
+        }
+        return
+    }
+
+    # Coming from outside: give it a folder of its own, named after the file.
+    $name = [IO.Path]::GetFileNameWithoutExtension($src)
+    $dir  = Join-Path $script:CharactersDir $name
+    $isNew = -not (Test-Path -LiteralPath $dir)
+    if ($isNew) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    $dest = Join-Path $dir (Split-Path -Leaf $src)
+    Copy-Item -LiteralPath $src -Destination $dest -Force
+    Write-Host "  $(if ($isNew) { 'added' } else { 'updated' }) characters\$name" -ForegroundColor DarkGray
+
+    if ($ext -eq '.png') {
+        $txt = Convert-CharacterPng $dest
+        if ($txt) { Use-Character $txt $name }
+    } else {
+        Use-Character $dest $name
     }
 }
 

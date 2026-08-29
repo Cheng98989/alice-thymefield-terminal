@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 """Turn a hand-edited PNG back into a fastfetch .txt logo.
 
-    python logo-from-png.py alice-logo.png alice-logo.txt
+    python logo-from-png.py character.png character.txt
+
+Usually you do not call this directly: "fastfetch icon <file.png>" runs it for
+you, drops the result next to the picture and updates config.jsonc.
 
 No resampling and no colour reduction: pixels land in the .txt one by one,
 exactly as drawn. Height must be even (each text cell holds two vertical
@@ -52,7 +55,5 @@ used = {px[x, y][:3] for y in range(h) for x in range(w) if px[x, y][3] >= 128}
 print("read   %s" % os.path.abspath(src))
 print("wrote  %s   (%d colours)" % (os.path.abspath(dst), len(used)))
 print()
-if os.path.basename(dst) != "alice-logo.txt":
-    print('fastfetch reads alice-logo.txt. Either name it that, or point')
-    print('"source" in config.jsonc at this file instead.')
 print('In config.jsonc, set  "width": %d, "height": %d' % (w, len(out)))
+print('(or let "fastfetch icon" do it)')

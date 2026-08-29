@@ -6,8 +6,11 @@
   // Truecolor escapes are already inside the file, hence type "file-raw"
   // ("file" would only substitute the $1..$9 placeholders).
   //
-  // The editable source is alice-logo.png, next to this file. After redrawing:
-  //     python logo-from-png.py alice-logo.png alice-logo.txt
+  // Each character lives in its own folder under characters/, holding the
+  // picture and the logo generated from it. Switch or import with:
+  //     fastfetch icon <name>        pick one that is already there
+  //     fastfetch icon <file.png>    bring in a new one
+  // Both rewrite the three lines below, so nothing here is edited by hand.
   //
   // The path below goes through ~/.config/fastfetch, which install.ps1 makes a
   // junction pointing back at this folder. That indirection is deliberate: it
@@ -15,7 +18,7 @@
   // this file needs no per-machine editing.
   "logo": {
     "type": "file-raw",
-    "source": "%USERPROFILE%/.config/fastfetch/alice-logo.txt",
+    "source": "%USERPROFILE%/.config/fastfetch/characters/alice/alice.txt",
     "width": 44,
     "height": 23,
     "padding": {

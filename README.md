@@ -144,7 +144,8 @@ fastfetch auto -n         turn it off   (also: off, no, 0)
 fastfetch auto toggle     flip it
 
 fastfetch icon            show which picture is in use
-fastfetch icon <file>     install a picture (.png to convert, or a ready .txt)
+fastfetch icon <name>     switch to a character in characters/
+fastfetch icon <file>     import a picture (.png to convert, or a ready .txt)
 ```
 
 Anything else you type after `fastfetch` goes straight to the real program, so
@@ -156,42 +157,53 @@ Anything else you type after `fastfetch` goes straight to the real program, so
 
 ### Change the artwork
 
-Point the `icon` command at any picture and it does the rest:
+Every character lives in its own folder under `fastfetch/characters/`, holding
+the picture and the logo generated from it:
 
-```powershell
-fastfetch icon C:\path\to\your-character.png
+```
+fastfetch/characters/
+├─ alice/
+│  ├─ alice.png      the picture
+│  └─ alice.txt      generated from it, this is what the terminal draws
+└─ yourcharacter/
+   └─ ...
 ```
 
-It converts the image, installs it, and writes the new width and height into
-`config.jsonc` for you. Open a new terminal and your picture is there. To see
-what is currently in use, run `fastfetch icon` with nothing after it.
-
-The size numbers matter: they tell fastfetch where to start the text column, so
-a picture of a different size with stale numbers would overlap the art or leave
-a gap in the middle of the screen. Letting the command handle it removes the
-step that is easiest to forget.
-
-The previous picture is kept as `alice-logo.previous.png`, so trying something
-out and changing your mind is one command:
+Switching between them is instant, and nothing overwrites anything:
 
 ```powershell
-fastfetch icon fastfetch\alice-logo.previous.png
+fastfetch icon alice
 ```
+
+To bring in a new one, point the command at any picture. It gets a folder of its
+own, is converted, and becomes the current logo:
+
+```powershell
+fastfetch icon C:\path	o\yourcharacter.png
+```
+
+Run `fastfetch icon` on its own to see which character is in use and what else
+is available. A folder you drop in by hand shows up there too — selecting it
+converts the picture the first time.
+
+The command also writes the new width and height into `config.jsonc`. Those
+numbers tell fastfetch where to start the text column, so leaving them stale
+would overlap the art or leave a gap in the middle of the screen. Letting the
+command handle it removes the step that is easiest to forget.
 
 ### Drawing your own
 
-`fastfetch/alice-logo.png` is the current picture, 44×46 pixels with a
-transparent background. Open it in any pixel-art editor (Aseprite, Piskel, even
-Paint if you zoom in), draw over it, save, then feed it back:
+Open a character's `.png` in any pixel-art editor (Aseprite, Piskel, even Paint
+if you zoom in), draw over it, save, then feed it back:
 
 ```powershell
-fastfetch icon fastfetch\alice-logo.png
+fastfetch icon fastfetch\characterslicelice.png
 ```
 
-Any size works, not just 44×46 — but **keep the height an even number**. Each
-character on screen holds two pixels stacked vertically, so an odd height leaves
-half a row over. The converter handles it by adding a blank row, but it is
-tidier to plan for it.
+Any size works — but **keep the height an even number**. Each character on
+screen holds two pixels stacked vertically, so an odd height leaves half a row
+over. The converter handles it by adding a blank row, but it is tidier to plan
+for it.
 
 Transparency is what shapes the silhouette: alpha below 128 means the pixel is
 off. Bear in mind the terminal is drawing your image with text, so anything
@@ -203,30 +215,8 @@ If you would rather run the conversion by hand, the script underneath is
 
 ```powershell
 cd fastfetch
-python logo-from-png.py alice-logo.png alice-logo.txt
+python logo-from-png.py characterslicelice.png characterslicelice.txt
 ```
-
-Two things to know:
-
-- **Keep the height an even number.** Each character on screen holds two pixels
-  stacked vertically, so an odd height leaves half a row hanging. The script
-  handles it by adding a blank row, but it is tidier to plan for it.
-- **If you change the size**, the script prints two numbers at the end. Copy
-  them into `fastfetch/config.jsonc`, into the `width` and `height` lines near
-  the top. Those tell fastfetch where the text column should start; if you skip
-  this the text will overlap your picture.
-
-Going the other way — pulling the PNG back out of a logo file — is
-`logo-to-png.py`:
-
-```powershell
-python fastfetch/logo-to-png.py alice-logo.txt recovered.png
-```
-
-Add a number at the end to get it enlarged for a closer look: `10` gives ten
-times the size, nearest-neighbour, so the pixels stay square instead of going
-blurry. Leave the number off when you intend to edit the result and feed it
-back in. Round-tripping does not degrade the image.
 
 ### Change the colours
 
@@ -275,7 +265,7 @@ Not required reading, but useful if you want to change something deeper.
 that fills the top or bottom half of its cell. Colouring the foreground and the
 background separately gives two pixels per character, which is why the artwork
 looks like pixel art and not like ASCII art. The colours are baked into
-`alice-logo.txt` as escape codes, which is why `config.jsonc` loads it as
+the character's `.txt` as escape codes, which is why `config.jsonc` loads it as
 `file-raw` rather than `file`.
 
 **A junction keeps the files here.** fastfetch always looks in
@@ -357,12 +347,14 @@ back too. The file it replaced is kept next to it as
 install.ps1              the installer
 uninstall.ps1            puts everything back
 fastfetch/
-  alice-logo.png         the artwork — edit this one
-  alice-logo.txt         generated from the PNG; do not edit by hand
+  characters/
+    alice/
+      alice.png          the artwork — edit this one
+      alice.txt          generated from it; do not edit by hand
+      sources/           the original artwork it was traced from
   config.jsonc           layout, colours, which info to show
   logo-from-png.py       PNG -> txt, after you redraw
   logo-to-png.py         txt -> PNG, to get the image back out
-  sources/               the original artwork it was traced from
 windows-terminal/
   appearance.json        the settings "customize on" applies
   schemes.json           the colour palette itself
