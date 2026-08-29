@@ -308,14 +308,14 @@ one, or you deleted the PNG — `logo-to-png.py` reverses the conversion:
 
 ```powershell
 cd fastfetch
-python logo-to-png.py characterslicelice.txt recovered.png
+python logo-to-png.py characters\alice\alice.txt recovered.png
 ```
 
 Add a number to enlarge it for a closer look, nearest-neighbour so the pixels
 stay square instead of going blurry:
 
 ```powershell
-python logo-to-png.py characterslicelice.txt big.png 10
+python logo-to-png.py characters\alice\alice.txt big.png 10
 ```
 
 Leave the number off when you mean to edit the result and feed it back with
