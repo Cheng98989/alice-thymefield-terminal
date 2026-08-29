@@ -133,7 +133,8 @@ function Get-Characters {
     Get-ChildItem -LiteralPath $script:CharactersDir -Directory | ForEach-Object {
         # A character is just a folder. The picture and the logo inside can be
         # named anything, so a redraw does not have to be renamed to fit.
-        $txt = Get-ChildItem -LiteralPath $_.FullName -Filter *.txt -File | Select-Object -First 1
+        $txt = Get-ChildItem -LiteralPath $_.FullName -Filter *.txt -File |
+                   Where-Object { $_.Name -ne 'name.txt' } | Select-Object -First 1
         $png = Get-ChildItem -LiteralPath $_.FullName -Filter *.png -File | Select-Object -First 1
         [pscustomobject]@{
             Name = $_.Name
@@ -142,6 +143,50 @@ function Get-Characters {
             Png  = if ($png) { $png.FullName } else { $null }
         }
     }
+}
+
+function Get-CharacterDisplayName([string]$Name) {
+    if (-not $Name) { return $null }
+    # A name.txt inside the folder wins, for when the folder ended up called
+    # something like "char-v2-final" because that is what the file was called.
+    $override = Join-Path (Join-Path $script:CharactersDir $Name) 'name.txt'
+    if (Test-Path -LiteralPath $override) {
+        $first = @(Get-Content -LiteralPath $override -Encoding UTF8)[0]
+        if ($first -and $first.Trim()) { return $first.Trim() }
+    }
+    # Otherwise the folder name, tidied: "yeshunguang" -> "Yeshunguang".
+    $words = $Name -split '[-_\s]+' | Where-Object { $_ }
+    ($words | ForEach-Object { $_.Substring(0, 1).ToUpper() + $_.Substring(1) }) -join ' '
+}
+
+function Set-TitleCharacter([string]$NewName) {
+    # The title names the character, and fastfetch format strings have no
+    # placeholder for it, so the text has to be rewritten on every switch.
+    # What it currently says is recorded in a "// character:" comment next to
+    # the module rather than derived from the folder name: a display name can
+    # change - renaming the folder, adding a name.txt - and the title would then
+    # hold a string nothing matches, leaving it stuck with no way to correct it.
+    if (-not $NewName) { return }
+    $file = Join-Path $script:FastfetchDir 'config.jsonc'
+    if (-not (Test-Path -LiteralPath $file)) { return }
+    $text = Get-Content -LiteralPath $file -Raw -Encoding UTF8
+
+    $m = [regex]::Match($text, '//\s*character:[ 	]*(.+?)[ 	]*?
+')
+    if (-not $m.Success) { return }          # marker removed on purpose: leave the title alone
+    $current = $m.Groups[1].Value
+    if ($current -eq $NewName) { return }
+
+    $text = [regex]::Replace(
+        $text,
+        '(?s)("type"\s*:\s*"title".*?"format"\s*:\s*")([^"]*)(")',
+        {
+            param($mm)
+            $mm.Groups[1].Value + $mm.Groups[2].Value.Replace($current, $NewName) + $mm.Groups[3].Value
+        }, 1)
+    $text = [regex]::Replace($text, '(//\s*character:)[ 	]*.+?([ 	]*?
+)', "`$1 $NewName`$2", 1)
+    Write-Utf8NoBom $file $text
 }
 
 function Show-FastfetchIcon {
@@ -205,6 +250,8 @@ function Convert-CharacterPng($Png) {
 }
 
 function Use-Character($TxtPath, $Label) {
+    $newName = Get-CharacterDisplayName $Label
+
     $m = Get-LogoMetrics $TxtPath
     if ($m.Width -eq 0) {
         Write-Host "  that logo has no printable content" -ForegroundColor Red
@@ -214,8 +261,9 @@ function Use-Character($TxtPath, $Label) {
     # wherever the repository was cloned.
     $rel = $TxtPath.Substring($script:FastfetchDir.Length).TrimStart('\', '/').Replace('\', '/')
     if (Set-LogoBlock "%USERPROFILE%/.config/fastfetch/$rel" $m.Width $m.Height) {
+        Set-TitleCharacter $newName
         Write-Host ""
-        Write-Host "  character  " -NoNewline; Write-Host $Label -ForegroundColor Green
+        Write-Host "  character  " -NoNewline; Write-Host $newName -ForegroundColor Green
         Write-Host "  logo       $TxtPath"
         Write-Host "  size       $($m.Width) x $($m.Height) characters, written into config.jsonc"
         Write-Host "  visible in the next window" -ForegroundColor DarkGray

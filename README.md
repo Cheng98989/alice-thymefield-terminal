@@ -191,6 +191,25 @@ numbers tell fastfetch where to start the text column, so leaving them stale
 would overlap the art or leave a gap in the middle of the screen. Letting the
 command handle it removes the step that is easiest to forget.
 
+### The name in the greeting
+
+The top line greets you and names the character — *"Hey, Cheng — Alice is
+watching"* — and it follows whichever character is selected. The name comes from
+the folder, tidied up: `yeshunguang` becomes *Yeshunguang*.
+
+Importing a picture names the folder after the file, so you can end up with
+something like `char-v2-final`. Put the name you actually want in a `name.txt`
+inside that folder and it wins:
+
+```
+fastfetch/characters/char-v2-final/name.txt   ->   Ellen Joe
+```
+
+A `// character:` comment sits next to the title in `config.jsonc`, recording
+what the line currently says so a switch knows exactly which words to replace.
+Leave it alone and the greeting keeps up by itself; delete it and the title
+stops being touched, which is the way to word the line however you like.
+
 ### Drawing your own
 
 Open a character's `.png` in any pixel-art editor (Aseprite, Piskel, even Paint

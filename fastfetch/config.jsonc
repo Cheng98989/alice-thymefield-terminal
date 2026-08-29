@@ -67,6 +67,10 @@
   },
 
   "modules": [
+    // character: Alice
+    // Kept in sync by "fastfetch icon". It records what the title currently
+    // says, so a switch knows exactly which text to replace - deriving it from
+    // the folder breaks as soon as a display name changes.
     {
       "type": "title",
       "key": " ",
