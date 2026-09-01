@@ -12,12 +12,15 @@
 #      customize save         re-read the current Windows Terminal appearance
 #                             and store it as the "on" state
 #
-#  ---- FASTFETCH ------------------------------------------------------------
-#      fastfetch auto [-y | -n | toggle]   run it at startup, or stop doing that
-#      fastfetch theme                     show which character/picture is in use
-#      fastfetch theme <file.png>          convert an image and install it
-#      fastfetch theme <file.txt>          install a ready-made logo
-#      fastfetch modules                   show which info fields are on or off
+#  ---- PHAETHON ---------------------------------------------------------------
+#      phaethon auto [-y | -n | toggle]   run it at startup, or stop doing that
+#      phaethon theme                     show which character/picture is in use
+#      phaethon theme <file.png>          convert an image and install it
+#      phaethon theme <file.txt>          install a ready-made logo
+#      phaethon modules                   show which info fields are on or off
+#
+#  "fastfetch" still works too - it is the same function under its old name,
+#  kept so nothing that already types "fastfetch theme ..." breaks.
 #
 #  Setting an icon also writes the new width and height into config.jsonc: the
 #  step that is easy to forget, and that leaves the text column in the wrong
@@ -27,8 +30,8 @@
 #  fastfetch\modules.jsonc rather than through a command - it is a flat,
 #  commented on/off list, so editing it directly is the whole interface.
 #
-#  Any other argument is forwarded straight to fastfetch.exe, so
-#  "fastfetch --version" and "fastfetch -s cpu" keep working as usual.
+#  Any argument phaethon does not recognise is forwarded straight to
+#  fastfetch.exe, so "phaethon --version" and "phaethon -s cpu" keep working.
 #
 #  No state is ever written into this script: the autostart is an empty marker
 #  file, the appearance lives in Windows Terminal's settings.json. Flipping a
@@ -317,7 +320,7 @@ function Show-FastfetchIcon {
         Write-Host "  character  " -NoNewline
         Write-Host "$curName" -NoNewline -ForegroundColor Green
         Write-Host "  (icon hidden - " -NoNewline -ForegroundColor DarkGray
-        Write-Host "fastfetch theme icon on" -NoNewline -ForegroundColor DarkGray
+        Write-Host "phaethon theme icon on" -NoNewline -ForegroundColor DarkGray
         Write-Host " to show it)" -ForegroundColor DarkGray
     } else {
         Write-Host "  no logo configured" -ForegroundColor Red
@@ -349,11 +352,11 @@ function Show-FastfetchIcon {
         }
     }
     Write-Host ""
-    Write-Host "  fastfetch theme <name>               switch theme" -ForegroundColor DarkGray
-    Write-Host "  fastfetch theme <file.png>           import a new one" -ForegroundColor DarkGray
-    Write-Host "  fastfetch theme icon <file|on|off>   set or hide this theme's picture" -ForegroundColor DarkGray
-    Write-Host "  fastfetch theme background <file|on|off>  and its wallpaper" -ForegroundColor DarkGray
-    Write-Host "  fastfetch theme remove <name>        delete one" -ForegroundColor DarkGray
+    Write-Host "  phaethon theme <name>               switch theme" -ForegroundColor DarkGray
+    Write-Host "  phaethon theme <file.png>           import a new one" -ForegroundColor DarkGray
+    Write-Host "  phaethon theme icon <file|on|off>   set or hide this theme's picture" -ForegroundColor DarkGray
+    Write-Host "  phaethon theme background <file|on|off>  and its wallpaper" -ForegroundColor DarkGray
+    Write-Host "  phaethon theme remove <name>        delete one" -ForegroundColor DarkGray
     Write-Host ""
 }
 
@@ -467,7 +470,7 @@ function Reset-FastfetchConfig([bool]$Force) {
             Write-Host "  the default character '$name' is not here, using $($next.Name)" -ForegroundColor DarkGray
             Use-Character $next.Txt $next.Name $false $false
         } else {
-            Write-Host "  no characters installed: add one with  fastfetch icon <file.png>" -ForegroundColor Yellow
+            Write-Host "  no characters installed: add one with  phaethon icon <file.png>" -ForegroundColor Yellow
         }
     }
 }
@@ -512,7 +515,7 @@ function Remove-CharacterFolder($Name, [bool]$Force) {
     } else {
         Write-Host ""
         Write-Host "  that was the last character: the splash has no logo now." -ForegroundColor Yellow
-        Write-Host "  Add one with:  fastfetch icon <file.png>" -ForegroundColor DarkGray
+        Write-Host "  Add one with:  phaethon icon <file.png>" -ForegroundColor DarkGray
         Write-Host ""
     }
 }
@@ -671,7 +674,7 @@ function Set-FastfetchIcon($Arg, [bool]$Force) {
     }
 }
 
-function fastfetch {
+function phaethon {
     if ($args.Count -ge 1 -and "$($args[0])" -eq 'reset') {
         $f = $args -contains '-force' -or $args -contains '-y' -or $args -contains '-f'
         Reset-FastfetchConfig $f
@@ -692,15 +695,15 @@ function fastfetch {
             'reset'  { Reset-FastfetchConfig $force }
             'remove' {
                 if ($words.Count -ge 2) { Remove-CharacterFolder $words[1] $force }
-                else { Write-Host "  usage: fastfetch theme remove <name>" }
+                else { Write-Host "  usage: phaethon theme remove <name>" }
             }
             'background' {
                 if ($words.Count -ge 2) { Set-ThemeBackground $words[1] }
-                else { Write-Host "  usage: fastfetch theme background <file | on | off>" }
+                else { Write-Host "  usage: phaethon theme background <file | on | off>" }
             }
             'icon' {
                 if ($words.Count -ge 2) { Set-ThemeIcon $words[1] $force }
-                else { Write-Host "  usage: fastfetch theme icon <file | on | off>" }
+                else { Write-Host "  usage: phaethon theme icon <file | on | off>" }
             }
             ''       { Show-FastfetchIcon }
             default  { Set-FastfetchIcon $words[0] $force }
@@ -721,7 +724,7 @@ function fastfetch {
             { $_ -in 'toggle', 't'           } { $new = -not $on }
             ''                                 { }
             default {
-                Write-Host "usage: fastfetch auto [-y | -n | toggle]"
+                Write-Host "usage: phaethon auto [-y | -n | toggle]"
                 return
             }
         }
@@ -746,6 +749,10 @@ function fastfetch {
     }
     & $exe @args
 }
+
+# The old name, kept working so nothing that already types "fastfetch theme
+# ..." breaks - it is just phaethon under another name.
+function fastfetch { phaethon @args }
 
 # ---------------------------------------------- Windows Terminal appearance --
 
@@ -1039,7 +1046,7 @@ function New-Completion($Text, $Tooltip) {
 # everything it does not recognise reaches the real binary untouched, and there
 # are no declared parameters for a completer to attach to. Registering it as
 # native still fires for a function that shadows a command of the same name.
-Register-ArgumentCompleter -Native -CommandName fastfetch -ScriptBlock {
+Register-ArgumentCompleter -Native -CommandName phaethon, fastfetch -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
 
     $tokens = @($commandAst.CommandElements | ForEach-Object { "$_" })
@@ -1099,5 +1106,5 @@ Register-ArgumentCompleter -Native -CommandName customize -ScriptBlock {
 # ---------------------------------------------------------------- startup ----
 
 if ((Test-Path -LiteralPath $script:FastfetchFlag) -and (Test-FastfetchInteractive)) {
-    fastfetch
+    phaethon
 }

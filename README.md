@@ -68,7 +68,7 @@ further down.
   python -m pip install pillow
   ```
 
-  Any Python 3 will do. If you skip this, `fastfetch theme` says so and gives you
+  Any Python 3 will do. If you skip this, `phaethon theme` says so and gives you
   that exact command rather than a traceback.
 
 No extra fonts to install: the splash uses characters that are already in the
@@ -147,27 +147,30 @@ To control just the splash and leave the theming alone, there is a separate
 switch for it:
 
 ```
-fastfetch auto            show whether it is on
-fastfetch auto -y         turn it on    (also: on, yes, 1)
-fastfetch auto -n         turn it off   (also: off, no, 0)
-fastfetch auto toggle     flip it
+phaethon auto            show whether it is on
+phaethon auto -y         turn it on    (also: on, yes, 1)
+phaethon auto -n         turn it off   (also: off, no, 0)
+phaethon auto toggle     flip it
 
-fastfetch theme                        show the active theme and what else exists
-fastfetch theme <name>                 switch to another one
-fastfetch theme <file>                 import a picture as a new theme
-fastfetch theme icon <file | on | off>      set this theme's picture, or hide/show it
-fastfetch theme background <file | on | off>  same, for its wallpaper
-fastfetch theme remove <name>          delete a theme
-fastfetch modules                      show which info fields are on or off
-fastfetch reset                        put config.jsonc back to the shipped default
+phaethon theme                        show the active theme and what else exists
+phaethon theme <name>                 switch to another one
+phaethon theme <file>                 import a picture as a new theme
+phaethon theme icon <file | on | off>      set this theme's picture, or hide/show it
+phaethon theme background <file | on | off>  same, for its wallpaper
+phaethon theme remove <name>          delete a theme
+phaethon modules                      show which info fields are on or off
+phaethon reset                        put config.jsonc back to the shipped default
 ```
 
-`fastfetch icon` still works as an alias for `fastfetch theme`.
+`fastfetch` still works too, typed in place of `phaethon` — same command under
+its old name, and `fastfetch icon` still works as an alias for
+`phaethon theme` within it.
 
 Press Tab after any of these to complete character names and switches.
 
-Anything else you type after `fastfetch` goes straight to the real program, so
-`fastfetch --version`, `fastfetch -s cpu` and the rest keep working normally.
+Anything else you type after `phaethon` goes straight to the real fastfetch
+program, so `phaethon --version`, `phaethon -s cpu` and the rest keep working
+normally.
 
 ---
 
@@ -194,7 +197,7 @@ else in the folder is yours to name.
 Switching applies both at once, and nothing overwrites anything:
 
 ```powershell
-fastfetch theme alice
+phaethon theme alice
 ```
 
 **A theme only brings what it has.** One with no `background` clears whatever
@@ -206,12 +209,12 @@ left margin.
 To change one piece of the active theme without touching the rest:
 
 ```powershell
-fastfetch theme background C:\path\to\wallpaper.png
-fastfetch theme background off
-fastfetch theme background on
-fastfetch theme icon C:\path\to\picture.png
-fastfetch theme icon off
-fastfetch theme icon on
+phaethon theme background C:\path\to\wallpaper.png
+phaethon theme background off
+phaethon theme background on
+phaethon theme icon C:\path\to\picture.png
+phaethon theme icon off
+phaethon theme icon on
 ```
 
 `off` only hides — it never deletes the file. The picture stays in the theme's
@@ -225,10 +228,10 @@ To bring in a new one, point the command at any picture. It gets a folder of its
 own, is converted, and becomes the current logo:
 
 ```powershell
-fastfetch theme C:\path\to\yourcharacter.png
+phaethon theme C:\path\to\yourcharacter.png
 ```
 
-Run `fastfetch theme` on its own to see which theme is in use and what else
+Run `phaethon theme` on its own to see which theme is in use and what else
 is available. A folder you drop in by hand shows up there too — selecting it
 converts the picture the first time.
 
@@ -245,7 +248,7 @@ by editing `fastfetch/modules.jsonc` directly:
 ```
 
 `true` shows a field, `false` hides it — nothing is deleted, so flipping it
-back brings it right back. `fastfetch modules` prints the current state of
+back brings it right back. `phaethon modules` prints the current state of
 every field without opening the file. Hiding every field inside one of the
 boxed sections (Hardware, Software, Session, Uptime/Date) leaves that
 section's frame empty rather than collapsing it — a deliberate trade-off to
@@ -259,7 +262,7 @@ pushed off the screen and the prompt scrolls away. A photo-sized image still
 If you want it anyway:
 
 ```powershell
-fastfetch theme big.png -force
+phaethon theme big.png -force
 ```
 
 The check runs before anything is copied, so a refusal leaves nothing behind.
@@ -303,7 +306,7 @@ Three ways out, cheapest first:
 To get rid of one:
 
 ```powershell
-fastfetch theme remove yourtheme
+phaethon theme remove yourtheme
 ```
 
 It shows what is about to go and asks before deleting; add `-force` to skip the
@@ -346,7 +349,7 @@ Open a character's `.png` in any pixel-art editor (Aseprite, Piskel, even Paint
 if you zoom in), draw over it, save, then feed it back:
 
 ```powershell
-fastfetch theme icon fastfetch\characters\alice\alice.png
+phaethon theme icon fastfetch\characters\alice\alice.png
 ```
 
 Any size works — but **keep the height an even number**. Each character on
@@ -377,12 +380,12 @@ python logo-to-png.py characters\alice\alice.txt big.png 10
 ```
 
 Leave the number off when you mean to edit the result and feed it back with
-`fastfetch theme`. The round trip is lossless, so a picture can go back and forth
+`phaethon theme`. The round trip is lossless, so a picture can go back and forth
 as many times as you like without degrading.
 
 ### Running the conversion by hand
 
-If you would rather not go through `fastfetch theme`, the script underneath is
+If you would rather not go through `phaethon theme`, the script underneath is
 `logo-from-png.py`, and it prints the numbers for `config.jsonc` itself:
 
 ```powershell
@@ -395,7 +398,7 @@ python logo-from-png.py characters\alice\alice.png characters\alice\alice.txt
 If you have edited `config.jsonc` into a corner:
 
 ```powershell
-fastfetch reset
+phaethon reset
 ```
 
 That puts colours, module list and selected character back to how they shipped,
@@ -438,7 +441,7 @@ For anything beyond on/off — reordering panels, changing a field's format,
 adding a module that isn't in the list yet — the `modules` list in
 `fastfetch/config.jsonc` is the whole splash screen, top to bottom. Delete an
 entry you do not care about, or copy one and change its `type`.
-`fastfetch --list-modules` prints everything available.
+`phaethon --list-modules` prints everything available.
 
 The `// "break"` lines are commented out on purpose — uncomment them if you
 prefer blank lines between the panels.
@@ -547,7 +550,7 @@ fastfetch/
       alice.png          the artwork — edit this one
       alice.txt          generated from it; do not edit by hand
   config.jsonc           layout, colours, which info to show
-  config.default.jsonc   the copy "fastfetch reset" restores from
+  config.default.jsonc   the copy "phaethon reset" restores from
   modules.jsonc          on/off switch for each info field
   requirements.txt       the one library the scripts need
   logo-from-png.py       PNG -> txt, after you redraw
