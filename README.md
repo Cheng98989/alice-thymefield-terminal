@@ -157,6 +157,7 @@ phaethon theme <name>                 switch to another one
 phaethon theme <file>                 import a picture as a new theme
 phaethon theme icon <file | on | off>      set this theme's picture, or hide/show it
 phaethon theme background <file | on | off>  same, for its wallpaper
+phaethon theme colors save | off      keep this theme's own colours, or drop them
 phaethon theme remove <name>          delete a theme
 phaethon modules                      show which info fields are on or off
 phaethon modules <name> on | off      show or hide one (CPU, GPU, uptime...)
@@ -185,7 +186,8 @@ fastfetch/characters/
 ├─ alice/
 │  ├─ alice.png        the picture
 │  ├─ alice.txt        generated from it, this is what the terminal draws
-│  └─ background.png   the wallpaper — optional
+│  ├─ background.png   the wallpaper — optional
+│  └─ theme.json       its own colours — optional, "phaethon theme colors save"
 └─ yourtheme/
    └─ ...
 ```
@@ -233,6 +235,30 @@ phaethon theme C:\path\to\yourcharacter.png
 Run `phaethon theme` on its own to see which theme is in use and what else
 is available. A folder you drop in by hand shows up there too — selecting it
 converts the picture the first time.
+
+### Giving a theme its own colours
+
+Every theme shares the same colour scheme, font, opacity and transparency by
+default — the one set up in `windows-terminal/appearance.json`. If you want
+one specific theme to look different, change it the normal way, through
+Windows Terminal's own settings UI, then:
+
+```powershell
+phaethon theme colors save
+```
+
+That stores only what you actually changed — not a full copy of every
+setting — into that theme's own `theme.json`, so it keeps looking that way
+every time you switch to it, while every other theme is untouched. Undo it
+with:
+
+```powershell
+phaethon theme colors off
+```
+
+which deletes `theme.json` and goes back to the shared appearance. Nothing
+here touches the wallpaper — that is still `phaethon theme background`,
+above.
 
 ### Which info fields show
 

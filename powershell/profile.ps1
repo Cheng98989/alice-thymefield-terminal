@@ -17,6 +17,7 @@
 #      phaethon theme                     show which character/picture is in use
 #      phaethon theme <file.png>          convert an image and install it
 #      phaethon theme <file.txt>          install a ready-made logo
+#      phaethon theme colors save|off     give this theme its own colours, or drop them
 #      phaethon modules                   show which info fields are on or off
 #      phaethon modules <name> on|off     show or hide one (CPU, GPU, uptime...)
 #
@@ -436,6 +437,13 @@ function Show-FastfetchIcon {
         Write-Host "none" -ForegroundColor DarkGray
     }
 
+    Write-Host "  colours    " -NoNewline
+    if (Test-Path -LiteralPath (Join-Path (Join-Path $script:CharactersDir $curName) 'theme.json')) {
+        Write-Host "own scheme" -ForegroundColor Green
+    } else {
+        Write-Host "shared appearance" -ForegroundColor DarkGray
+    }
+
     if ($chars.Count) {
         Write-Host ""
         Write-Host "  available"
@@ -447,6 +455,7 @@ function Show-FastfetchIcon {
             $bg = Get-ThemeBackgroundFile $c.Name
             if ($bg -and (Test-ThemeHidden $c.Name 'background')) { $bits += 'background hidden' }
             elseif ($bg) { $bits += 'background' }
+            if (Test-Path -LiteralPath (Join-Path $c.Dir 'theme.json')) { $bits += 'own colours' }
             $note = if ($bits.Count) { "  (" + ($bits -join ', ') + ")" } else { "" }
             Write-Host "    $($c.Name)$note" -ForegroundColor DarkGray
         }
@@ -456,6 +465,7 @@ function Show-FastfetchIcon {
     Write-Host "  phaethon theme <file.png>           import a new one" -ForegroundColor DarkGray
     Write-Host "  phaethon theme icon <file|on|off>   set or hide this theme's picture" -ForegroundColor DarkGray
     Write-Host "  phaethon theme background <file|on|off>  and its wallpaper" -ForegroundColor DarkGray
+    Write-Host "  phaethon theme colors save|off      keep or drop its own colour scheme" -ForegroundColor DarkGray
     Write-Host "  phaethon theme remove <name>        delete one" -ForegroundColor DarkGray
     Write-Host ""
 }
@@ -805,6 +815,14 @@ function phaethon {
                 if ($words.Count -ge 2) { Set-ThemeIcon $words[1] $force }
                 else { Write-Host "  usage: phaethon theme icon <file | on | off>" }
             }
+            'colors' {
+                $colorVerb = if ($words.Count -ge 2) { $words[1].ToLower() } else { '' }
+                switch ($colorVerb) {
+                    'save' { Save-ThemeAppearance }
+                    { $_ -in 'off', 'clear', 'none' } { Clear-ThemeAppearance }
+                    default { Write-Host "  usage: phaethon theme colors save | off" }
+                }
+            }
             ''       { Show-FastfetchIcon }
             default  { Set-FastfetchIcon $words[0] $force }
         }
@@ -1104,6 +1122,62 @@ function Save-CurrentAppearance {
     foreach ($k in $snap.Keys) { Write-Host "    $k" -ForegroundColor DarkGray }
 }
 
+function Save-ThemeAppearance {
+    # A theme's own colour scheme, font, opacity, acrylic and cursor - saved
+    # from whatever is live right now in Windows Terminal, same as
+    # "customize save" does for the shared baseline. Background stays out of
+    # this: it is already owned by "theme background", which layers on top
+    # of theme.json in Get-ThemeLayer, so saving it here too would just give
+    # the same setting two competing sources of truth.
+    $name = Get-CurrentCharacterName
+    if (-not $name) { Write-Host "  no theme is active" -ForegroundColor Red; return }
+    $spec = Get-AppearanceSpec
+    $j = Get-WTSettings
+    if (-not $j) { Write-Warning "Windows Terminal not found"; return }
+    $p = Get-WTTargetProfile $j (Resolve-WTProfileGuid $j $spec)
+    if (-not $p) { Write-Warning "profile not found"; return }
+
+    $keys = @('colorScheme', 'font', 'opacity', 'useAcrylic', 'cursorShape')
+    $baseline = if ($spec) { $spec.settings } else { $null }
+    $snap = [ordered]@{}
+    foreach ($k in $keys) {
+        if (-not ($p.PSObject.Properties.Name -contains $k)) { continue }
+        $v = $p.$k
+        # Only keep it if it actually differs from the shared baseline -
+        # otherwise every theme would carry a full copy of settings nothing
+        # about it customises.
+        $baseJson = if ($baseline -and $baseline.PSObject.Properties.Name -contains $k) { $baseline.$k | ConvertTo-Json -Depth 8 -Compress } else { $null }
+        $vJson = $v | ConvertTo-Json -Depth 8 -Compress
+        if ($baseJson -ne $vJson) { $snap[$k] = $v }
+    }
+    if ($snap.Keys.Count -eq 0) {
+        Write-Host "  $name looks the same as the shared appearance - nothing to save" -ForegroundColor DarkGray
+        return
+    }
+    $file = Join-Path (Join-Path $script:CharactersDir $name) 'theme.json'
+    Write-Utf8NoBom $file ($snap | ConvertTo-Json -Depth 8)
+    Write-Host "  saved into $name's theme ($($snap.Keys.Count) setting$(if ($snap.Keys.Count -ne 1) { 's' }))" -ForegroundColor Green
+    foreach ($k in $snap.Keys) { Write-Host "    $k" -ForegroundColor DarkGray }
+}
+
+function Clear-ThemeAppearance {
+    $name = Get-CurrentCharacterName
+    if (-not $name) { Write-Host "  no theme is active" -ForegroundColor Red; return }
+    $file = Join-Path (Join-Path $script:CharactersDir $name) 'theme.json'
+    if (-not (Test-Path -LiteralPath $file)) {
+        Write-Host "  $name has no colours of its own" -ForegroundColor DarkGray
+        return
+    }
+    Remove-Item -LiteralPath $file -Force
+    Write-Host "  $name's colours cleared, back to the shared appearance" -ForegroundColor Green
+    if (Test-AppearanceApplied) {
+        Set-TerminalAppearance $true | Out-Null
+        Write-Host "  applied now" -ForegroundColor DarkGray
+    } else {
+        Write-Host "  the theming is off; it will show with  customize on" -ForegroundColor DarkGray
+    }
+}
+
 # ----------------------------------------------------------- master switch --
 
 function Show-CustomizationStatus {
@@ -1180,6 +1254,10 @@ Register-ArgumentCompleter -Native -CommandName phaethon -ScriptBlock {
                 @(New-Completion 'off' 'hide it, without deleting the file'),
                 @(New-Completion 'on'  'show it again')
             }
+            elseif ($tokens.Count -ge 3 -and $tokens[2].ToLower() -eq 'colors') {
+                @(New-Completion 'save' 'store the current colours as this theme''s own'),
+                @(New-Completion 'off'  'drop them, back to the shared appearance')
+            }
             elseif ($tokens.Count -ge 3 -and $tokens[2].ToLower() -eq 'remove') {
                 @(Get-Characters | ForEach-Object { New-Completion $_.Name 'delete this character' })
             }
@@ -1192,6 +1270,7 @@ Register-ArgumentCompleter -Native -CommandName phaethon -ScriptBlock {
                 }) + @(
                     (New-Completion 'icon'       "set this theme's picture"),
                     (New-Completion 'background' "set this theme's wallpaper"),
+                    (New-Completion 'colors'     "save or drop its own colour scheme"),
                     (New-Completion 'remove'     'delete a theme')
                 )
             }
