@@ -14,13 +14,18 @@
 #
 #  ---- FASTFETCH ------------------------------------------------------------
 #      fastfetch auto [-y | -n | toggle]   run it at startup, or stop doing that
-#      fastfetch icon                      show which picture is in use
-#      fastfetch icon <file.png>           convert an image and install it
-#      fastfetch icon <file.txt>           install a ready-made logo
+#      fastfetch theme                     show which character/picture is in use
+#      fastfetch theme <file.png>          convert an image and install it
+#      fastfetch theme <file.txt>          install a ready-made logo
+#      fastfetch modules                   show which info fields are on or off
 #
 #  Setting an icon also writes the new width and height into config.jsonc: the
 #  step that is easy to forget, and that leaves the text column in the wrong
 #  place when it is skipped.
+#
+#  The individual info fields (CPU, GPU, uptime...) are toggled by hand in
+#  fastfetch\modules.jsonc rather than through a command - it is a flat,
+#  commented on/off list, so editing it directly is the whole interface.
 #
 #  Any other argument is forwarded straight to fastfetch.exe, so
 #  "fastfetch --version" and "fastfetch -s cpu" keep working as usual.
@@ -42,8 +47,17 @@ $script:CharactersDir    = Join-Path $script:SetupHome 'fastfetch\characters'
 # pushed off the right edge and the prompt scrolls away. "-force" overrides it.
 $script:IconMaxPixels    = 64
 $script:FastfetchFlag    = Join-Path $script:SetupHome 'fastfetch\autostart.on'
+$script:ModulesFile      = Join-Path $script:SetupHome 'fastfetch\modules.jsonc'
 $script:AppearanceFile   = Join-Path $script:SetupHome 'windows-terminal\appearance.json'
 $script:TerminalSettings = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'
+
+# fastfetch's own module type names, exactly as modules.jsonc and config.jsonc
+# use them. The picture, title and colour dots aren't here on purpose - they
+# are the character's look (fastfetch theme icon/background), not information
+# to trim.
+$script:KnownModules = @('host', 'cpu', 'gpu', 'memory', 'swap', 'disk', 'display',
+                          'os', 'wm', 'shell', 'terminal', 'locale', 'users',
+                          'sound', 'uptime', 'datetime')
 
 # ---------------------------------------------------------------- fastfetch --
 
@@ -245,6 +259,41 @@ function Set-TitleCharacter([string]$NewName) {
         param($x) $x.Groups[1].Value + ' ' + $NewName
     }, 1)
     Write-Utf8NoBom $file $text
+}
+
+function Get-ModuleToggles {
+    # A missing or unreadable file means nothing is hidden - the shipped
+    # layout is exactly what a fresh install already draws, so there is
+    # nothing to migrate for anyone who never touches modules.jsonc.
+    if (-not (Test-Path -LiteralPath $script:ModulesFile)) { return @{} }
+    $raw = Get-Content -LiteralPath $script:ModulesFile -Raw -Encoding UTF8
+    # The file is JSONC for the person editing it by hand, not something
+    # ConvertFrom-Json understands - strip // comments first.
+    $stripped = [regex]::Replace($raw, '(?m)//.*$', '')
+    try { $j = $stripped | ConvertFrom-Json } catch { return @{} }
+    $out = @{}
+    foreach ($p in $j.PSObject.Properties) {
+        if ($script:KnownModules -contains $p.Name) { $out[$p.Name] = [bool]$p.Value }
+    }
+    $out
+}
+
+function Get-DisabledModules {
+    $toggles = Get-ModuleToggles
+    @($toggles.Keys | Where-Object { -not $toggles[$_] })
+}
+
+function Show-ModuleToggles {
+    $toggles = Get-ModuleToggles
+    Write-Host ""
+    Write-Host "  modules" -ForegroundColor DarkGray
+    foreach ($m in $script:KnownModules) {
+        $on = if ($toggles.ContainsKey($m)) { $toggles[$m] } else { $true }
+        Write-Host "    $(if ($on) { 'on ' } else { 'off' })  $m" -ForegroundColor $(if ($on) { 'Green' } else { 'DarkGray' })
+    }
+    Write-Host ""
+    Write-Host "  edit fastfetch\modules.jsonc to change these" -ForegroundColor DarkGray
+    Write-Host ""
 }
 
 function Show-FastfetchIcon {
@@ -658,6 +707,10 @@ function fastfetch {
         }
         return
     }
+    if ($args.Count -ge 1 -and "$($args[0])" -eq 'modules') {
+        Show-ModuleToggles
+        return
+    }
     if ($args.Count -ge 1 -and "$($args[0])" -eq 'auto') {
         $arg = if ($args.Count -ge 2) { "$($args[1])".ToLower() } else { '' }
         $on  = Test-Path -LiteralPath $script:FastfetchFlag
@@ -681,6 +734,16 @@ function fastfetch {
 
     $exe = Get-FastfetchExe
     if (-not $exe) { Write-Warning 'fastfetch.exe not found in PATH'; return }
+    # Only the bare splash call gets modules.jsonc applied automatically -
+    # anyone typing real fastfetch flags is using the actual binary directly
+    # and gets exactly what they asked for, untouched.
+    if ($args.Count -eq 0) {
+        $disabled = @(Get-DisabledModules)
+        if ($disabled.Count) {
+            & $exe --structure-disabled ($disabled -join ':')
+            return
+        }
+    }
     & $exe @args
 }
 
@@ -1013,9 +1076,10 @@ Register-ArgumentCompleter -Native -CommandName fastfetch -ScriptBlock {
             @(New-Completion 'toggle' 'flip it') | ForEach-Object { $_ }
         }
         default {
-            @(New-Completion 'auto'  'control the startup splash'),
-            @(New-Completion 'theme' 'show or change the theme'),
-            @(New-Completion 'reset' 'restore config.jsonc to the default') | ForEach-Object { $_ }
+            @(New-Completion 'auto'    'control the startup splash'),
+            @(New-Completion 'theme'   'show or change the theme'),
+            @(New-Completion 'modules' 'show which info fields are on'),
+            @(New-Completion 'reset'   'restore config.jsonc to the default') | ForEach-Object { $_ }
         }
     }
     $suggestions | Where-Object { $_.ListItemText -like "$wordToComplete*" }

@@ -158,6 +158,7 @@ fastfetch theme <file>                 import a picture as a new theme
 fastfetch theme icon <file | on | off>      set this theme's picture, or hide/show it
 fastfetch theme background <file | on | off>  same, for its wallpaper
 fastfetch theme remove <name>          delete a theme
+fastfetch modules                      show which info fields are on or off
 fastfetch reset                        put config.jsonc back to the shipped default
 ```
 
@@ -230,6 +231,26 @@ fastfetch theme C:\path\to\yourcharacter.png
 Run `fastfetch theme` on its own to see which theme is in use and what else
 is available. A folder you drop in by hand shows up there too — selecting it
 converts the picture the first time.
+
+### Which info fields show
+
+The picture and the wallpaper are set with commands, above. Which pieces of
+system information the splash prints — CPU, GPU, uptime, and so on — is set
+by editing `fastfetch/modules.jsonc` directly:
+
+```jsonc
+"cpu":      true,
+"gpu":      false,
+"uptime":   true,
+```
+
+`true` shows a field, `false` hides it — nothing is deleted, so flipping it
+back brings it right back. `fastfetch modules` prints the current state of
+every field without opening the file. Hiding every field inside one of the
+boxed sections (Hardware, Software, Session, Uptime/Date) leaves that
+section's frame empty rather than collapsing it — a deliberate trade-off to
+keep the file a flat on/off list instead of something that needs its layout
+rewritten every time.
 
 Pictures are capped at **64×64 pixels**. The logo takes one terminal column per
 pixel across and one row per two down, so past that the information column gets
@@ -409,9 +430,15 @@ next to the others means it travels with the folder.
 
 ### Change what information is shown
 
-The `modules` list in `fastfetch/config.jsonc` is the whole splash screen, top
-to bottom. Delete an entry you do not care about, or copy one and change its
-`type`. `fastfetch --list-modules` prints everything available.
+For just turning fields on or off, edit `fastfetch/modules.jsonc` — see
+[Which info fields show](#which-info-fields-show) above; no need to touch
+`config.jsonc` at all for that.
+
+For anything beyond on/off — reordering panels, changing a field's format,
+adding a module that isn't in the list yet — the `modules` list in
+`fastfetch/config.jsonc` is the whole splash screen, top to bottom. Delete an
+entry you do not care about, or copy one and change its `type`.
+`fastfetch --list-modules` prints everything available.
 
 The `// "break"` lines are commented out on purpose — uncomment them if you
 prefer blank lines between the panels.
@@ -521,6 +548,7 @@ fastfetch/
       alice.txt          generated from it; do not edit by hand
   config.jsonc           layout, colours, which info to show
   config.default.jsonc   the copy "fastfetch reset" restores from
+  modules.jsonc          on/off switch for each info field
   requirements.txt       the one library the scripts need
   logo-from-png.py       PNG -> txt, after you redraw
   logo-to-png.py         txt -> PNG, to get the image back out

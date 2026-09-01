@@ -1,0 +1,32 @@
+{
+  // Every line here can be true (show) or false (hide). Nothing is deleted -
+  // a hidden module is just skipped when the splash draws, and flipping this
+  // back to true brings it right back on the next terminal window.
+  //
+  // These are the modules fastfetch prints data for. The picture, the title
+  // and the little colour dots at the end aren't here - they're the
+  // character's own look, set with  fastfetch theme icon/background , not a
+  // piece of system information to trim.
+  //
+  // One thing to know: hiding every module inside a section (e.g. both
+  // "users" and "sound") leaves that section's empty frame on screen. That's
+  // a deliberate trade-off - keeping this file a flat on/off list is worth
+  // more than the box collapsing itself.
+
+  "host":     true,
+  "cpu":      true,
+  "gpu":      true,
+  "memory":   true,
+  "swap":     true,
+  "disk":     true,
+  "display":  true,
+  "os":       true,
+  "wm":       true,
+  "shell":    true,
+  "terminal": true,
+  "locale":   true,
+  "users":    true,
+  "sound":    true,
+  "uptime":   true,
+  "datetime": true
+}
