@@ -340,33 +340,34 @@ function Get-ModuleObjects {
     [pscustomobject]@{ Objects = $objects; Text = $text; File = $file }
 }
 
-function Get-FormatValueRange($Text, $ObjStart, $ObjEnd) {
-    # The character range of just the "format" string's contents (between the
-    # quotes), so it can be blanked without disturbing anything around it -
-    # no object removed, no comma to rebalance.
-    $seg = $Text.Substring($ObjStart, $ObjEnd - $ObjStart + 1)
-    $m = [regex]::Match($seg, '"format"\s*:\s*"')
-    if (-not $m.Success) { return $null }
-    $valueStart = $ObjStart + $m.Index + $m.Length
-    $i = $valueStart; $esc = $false
-    while ($i -le $ObjEnd) {
-        $c = $Text[$i]
-        if ($esc) { $esc = $false; $i++; continue }
-        if ($c -eq '\') { $esc = $true; $i++; continue }
-        if ($c -eq '"') { break }
-        $i++
+function Get-ObjectRemovalRange($Text, $Start, $End) {
+    # The object's own {...} plus exactly one neighbouring comma, so deleting
+    # it leaves the array's commas balanced. Blanking just the "format" value
+    # was tried first and looked right, but fastfetch still prints an empty
+    # line for a module with format "" - it only truly disappears when the
+    # object itself is gone. Prefers the comma that follows; falls back to
+    # the one before it for the last entry in the array, which has none after.
+    $i = $End + 1
+    while ($i -lt $Text.Length -and [char]::IsWhiteSpace($Text[$i])) { $i++ }
+    if ($i -lt $Text.Length -and $Text[$i] -eq ',') {
+        return [pscustomobject]@{ Start = $Start; End = $i + 1 }
     }
-    [pscustomobject]@{ Start = $valueStart; End = $i }
+    $j = $Start - 1
+    while ($j -ge 0 -and [char]::IsWhiteSpace($Text[$j])) { $j-- }
+    if ($j -ge 0 -and $Text[$j] -eq ',') {
+        return [pscustomobject]@{ Start = $j; End = $End + 1 }
+    }
+    [pscustomobject]@{ Start = $Start; End = $End + 1 }
 }
 
 function Get-SplashConfig {
-    # Blanks the "format" of a section's two "custom" border lines when every
-    # togglable module inside it is hidden - fastfetch prints nothing at all
-    # for an empty format, so the box disappears instead of framing nothing.
-    # --structure-disabled can't do this alone: it disables by module type,
-    # and several sections share the type "custom", so it would take every
-    # border with it. Only used when a whole section is actually empty; the
-    # common case (a field or two hidden) never touches config.jsonc at all.
+    # Removes a section's two "custom" border objects outright when every
+    # togglable module inside it is hidden, so the box disappears instead of
+    # framing nothing. --structure-disabled can't do this alone: it disables
+    # by module type, and several sections share the type "custom", so it
+    # would take every border with it. Only used when a whole section is
+    # actually empty; the common case (a field or two hidden) never touches
+    # config.jsonc at all.
     $disabled = @(Get-DisabledModules)
     if (-not $disabled.Count) { return $null }
     $scan = Get-ModuleObjects
@@ -388,8 +389,7 @@ function Get-SplashConfig {
     }
     if (-not $borders.Count) { return $null }
 
-    $ranges = @($borders | ForEach-Object { Get-FormatValueRange $scan.Text $_.Start $_.End } | Where-Object { $_ })
-    if (-not $ranges.Count) { return $null }
+    $ranges = @($borders | ForEach-Object { Get-ObjectRemovalRange $scan.Text $_.Start $_.End })
     $text = $scan.Text
     foreach ($r in ($ranges | Sort-Object Start -Descending)) {
         $text = $text.Remove($r.Start, $r.End - $r.Start)
