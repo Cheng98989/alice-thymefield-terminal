@@ -18,14 +18,11 @@
 #      phaethon theme <file.png>          convert an image and install it
 #      phaethon theme <file.txt>          install a ready-made logo
 #      phaethon modules                   show which info fields are on or off
+#      phaethon modules <name> on|off     show or hide one (CPU, GPU, uptime...)
 #
 #  Setting an icon also writes the new width and height into config.jsonc: the
 #  step that is easy to forget, and that leaves the text column in the wrong
 #  place when it is skipped.
-#
-#  The individual info fields (CPU, GPU, uptime...) are toggled by hand in
-#  fastfetch\modules.jsonc rather than through a command - it is a flat,
-#  commented on/off list, so editing it directly is the whole interface.
 #
 #  Any argument phaethon does not recognise is forwarded straight to
 #  fastfetch.exe, so "phaethon --version" and "phaethon -s cpu" keep working.
@@ -47,17 +44,16 @@ $script:CharactersDir    = Join-Path $script:SetupHome 'fastfetch\characters'
 # pushed off the right edge and the prompt scrolls away. "-force" overrides it.
 $script:IconMaxPixels    = 64
 $script:FastfetchFlag    = Join-Path $script:SetupHome 'fastfetch\autostart.on'
-$script:ModulesFile      = Join-Path $script:SetupHome 'fastfetch\modules.jsonc'
+$script:ModulesDisabled  = Join-Path $script:SetupHome 'fastfetch\modules.disabled'
 $script:AppearanceFile   = Join-Path $script:SetupHome 'windows-terminal\appearance.json'
 $script:TerminalSettings = Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'
 
-# fastfetch's own module type names, exactly as modules.jsonc and config.jsonc
-# use them. The picture, title and colour dots aren't here on purpose - they
-# are the character's look (fastfetch theme icon/background), not information
-# to trim.
+# fastfetch's own module type names, exactly as config.jsonc uses them. The
+# picture, title and colour dots aren't here on purpose - they are the
+# character's look (phaethon theme icon/background), not information to trim.
 $script:KnownModules = @('host', 'cpu', 'gpu', 'memory', 'swap', 'disk', 'display',
-                          'os', 'wm', 'shell', 'terminal', 'locale', 'users',
-                          'sound', 'uptime', 'datetime')
+                          'os', 'wm', 'shell', 'terminal', 'locale', 'localip',
+                          'users', 'sound', 'uptime', 'datetime')
 
 # ---------------------------------------------------------------- fastfetch --
 
@@ -261,39 +257,146 @@ function Set-TitleCharacter([string]$NewName) {
     Write-Utf8NoBom $file $text
 }
 
-function Get-ModuleToggles {
-    # A missing or unreadable file means nothing is hidden - the shipped
-    # layout is exactly what a fresh install already draws, so there is
-    # nothing to migrate for anyone who never touches modules.jsonc.
-    if (-not (Test-Path -LiteralPath $script:ModulesFile)) { return @{} }
-    $raw = Get-Content -LiteralPath $script:ModulesFile -Raw -Encoding UTF8
-    # The file is JSONC for the person editing it by hand, not something
-    # ConvertFrom-Json understands - strip // comments first.
-    $stripped = [regex]::Replace($raw, '(?m)//.*$', '')
-    try { $j = $stripped | ConvertFrom-Json } catch { return @{} }
-    $out = @{}
-    foreach ($p in $j.PSObject.Properties) {
-        if ($script:KnownModules -contains $p.Name) { $out[$p.Name] = [bool]$p.Value }
-    }
-    $out
+function Get-DisabledModules {
+    # One module type per line. Missing file, or a line that isn't a known
+    # type (a typo, most likely), just means nothing extra is hidden.
+    if (-not (Test-Path -LiteralPath $script:ModulesDisabled)) { return @() }
+    $lines = @(Get-Content -LiteralPath $script:ModulesDisabled -Encoding UTF8 |
+                   ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    @($lines | Where-Object { $script:KnownModules -contains $_ } | Select-Object -Unique)
 }
 
-function Get-DisabledModules {
-    $toggles = Get-ModuleToggles
-    @($toggles.Keys | Where-Object { -not $toggles[$_] })
+function Set-ModuleVisibility([string]$Name, [bool]$Visible) {
+    $disabled = @(Get-DisabledModules)
+    $already = $disabled -contains $Name
+    if ($Visible -eq (-not $already)) { return $false }
+    $new = if ($Visible) { $disabled | Where-Object { $_ -ne $Name } }
+           else          { $disabled + $Name }
+    $dir = Split-Path -Parent $script:ModulesDisabled
+    if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    if ($new.Count) { Write-Utf8NoBom $script:ModulesDisabled (($new | Sort-Object) -join "`n") }
+    else             { Remove-Item -LiteralPath $script:ModulesDisabled -Force -ErrorAction SilentlyContinue }
+    return $true
 }
 
 function Show-ModuleToggles {
-    $toggles = Get-ModuleToggles
+    $disabled = @(Get-DisabledModules)
     Write-Host ""
     Write-Host "  modules" -ForegroundColor DarkGray
     foreach ($m in $script:KnownModules) {
-        $on = if ($toggles.ContainsKey($m)) { $toggles[$m] } else { $true }
+        $on = $disabled -notcontains $m
         Write-Host "    $(if ($on) { 'on ' } else { 'off' })  $m" -ForegroundColor $(if ($on) { 'Green' } else { 'DarkGray' })
     }
     Write-Host ""
-    Write-Host "  edit fastfetch\modules.jsonc to change these" -ForegroundColor DarkGray
+    Write-Host "  phaethon modules <name> off   hide a field" -ForegroundColor DarkGray
+    Write-Host "  phaethon modules <name> on    show it again" -ForegroundColor DarkGray
     Write-Host ""
+}
+
+function Get-ModuleObjects {
+    # Every top-level object in config.jsonc's "modules" array, in file order,
+    # with its type and its own character range - scanned structurally so
+    # that editing colours, box art or the module order in config.jsonc never
+    # needs anything here to be updated to match.
+    $file = Join-Path $script:FastfetchDir 'config.jsonc'
+    $text = Get-Content -LiteralPath $file -Raw -Encoding UTF8
+    $modStart = $text.IndexOf('"modules"')
+    if ($modStart -lt 0) { return $null }
+    $arrStart = $text.IndexOf('[', $modStart)
+    $depth = 0; $inStr = $false; $esc = $false; $arrEnd = -1
+    for ($i = $arrStart; $i -lt $text.Length; $i++) {
+        $c = $text[$i]
+        if ($esc) { $esc = $false; continue }
+        if ($inStr -and $c -eq '\') { $esc = $true; continue }
+        if ($c -eq '"') { $inStr = -not $inStr; continue }
+        if ($inStr) { continue }
+        if ($c -eq '[') { $depth++ }
+        elseif ($c -eq ']') { $depth--; if ($depth -eq 0) { $arrEnd = $i; break } }
+    }
+    if ($arrEnd -lt 0) { return $null }
+
+    $objects = @()
+    $braceDepth = 0; $objStart = -1; $inStr = $false; $esc = $false
+    for ($i = $arrStart; $i -le $arrEnd; $i++) {
+        $c = $text[$i]
+        if ($esc) { $esc = $false; continue }
+        if ($inStr -and $c -eq '\') { $esc = $true; continue }
+        if ($c -eq '"') { $inStr = -not $inStr; continue }
+        if ($inStr) { continue }
+        if ($c -eq '{') { if ($braceDepth -eq 0) { $objStart = $i }; $braceDepth++ }
+        elseif ($c -eq '}') {
+            $braceDepth--
+            if ($braceDepth -eq 0 -and $objStart -ge 0) {
+                $typeMatch = [regex]::Match($text.Substring($objStart, $i - $objStart + 1), '"type"\s*:\s*"([^"]+)"')
+                $objects += [pscustomobject]@{
+                    Type  = if ($typeMatch.Success) { $typeMatch.Groups[1].Value.ToLower() } else { $null }
+                    Start = $objStart
+                    End   = $i
+                }
+                $objStart = -1
+            }
+        }
+    }
+    [pscustomobject]@{ Objects = $objects; Text = $text; File = $file }
+}
+
+function Get-FormatValueRange($Text, $ObjStart, $ObjEnd) {
+    # The character range of just the "format" string's contents (between the
+    # quotes), so it can be blanked without disturbing anything around it -
+    # no object removed, no comma to rebalance.
+    $seg = $Text.Substring($ObjStart, $ObjEnd - $ObjStart + 1)
+    $m = [regex]::Match($seg, '"format"\s*:\s*"')
+    if (-not $m.Success) { return $null }
+    $valueStart = $ObjStart + $m.Index + $m.Length
+    $i = $valueStart; $esc = $false
+    while ($i -le $ObjEnd) {
+        $c = $Text[$i]
+        if ($esc) { $esc = $false; $i++; continue }
+        if ($c -eq '\') { $esc = $true; $i++; continue }
+        if ($c -eq '"') { break }
+        $i++
+    }
+    [pscustomobject]@{ Start = $valueStart; End = $i }
+}
+
+function Get-SplashConfig {
+    # Blanks the "format" of a section's two "custom" border lines when every
+    # togglable module inside it is hidden - fastfetch prints nothing at all
+    # for an empty format, so the box disappears instead of framing nothing.
+    # --structure-disabled can't do this alone: it disables by module type,
+    # and several sections share the type "custom", so it would take every
+    # border with it. Only used when a whole section is actually empty; the
+    # common case (a field or two hidden) never touches config.jsonc at all.
+    $disabled = @(Get-DisabledModules)
+    if (-not $disabled.Count) { return $null }
+    $scan = Get-ModuleObjects
+    if (-not $scan) { return $null }
+
+    $borders = @()
+    $header = $null; $members = @()
+    foreach ($o in $scan.Objects) {
+        if ($o.Type -eq 'custom') {
+            if ($null -eq $header) { $header = $o; $members = @() }
+            else {
+                $known = @($members | Where-Object { $script:KnownModules -contains $_.Type })
+                if ($known.Count -gt 0 -and @($known | Where-Object { $disabled -notcontains $_.Type }).Count -eq 0) {
+                    $borders += $header; $borders += $o
+                }
+                $header = $null
+            }
+        } elseif ($header) { $members += $o }
+    }
+    if (-not $borders.Count) { return $null }
+
+    $ranges = @($borders | ForEach-Object { Get-FormatValueRange $scan.Text $_.Start $_.End } | Where-Object { $_ })
+    if (-not $ranges.Count) { return $null }
+    $text = $scan.Text
+    foreach ($r in ($ranges | Sort-Object Start -Descending)) {
+        $text = $text.Remove($r.Start, $r.End - $r.Start)
+    }
+    $tmp = Join-Path ([IO.Path]::GetTempPath()) 'phaethon-splash.jsonc'
+    Write-Utf8NoBom $tmp $text
+    $tmp
 }
 
 function Show-FastfetchIcon {
@@ -708,7 +811,28 @@ function phaethon {
         return
     }
     if ($args.Count -ge 1 -and "$($args[0])" -eq 'modules') {
-        Show-ModuleToggles
+        if ($args.Count -lt 3) { Show-ModuleToggles; return }
+        $name = "$($args[1])".ToLower()
+        $verb = "$($args[2])".ToLower()
+        if ($script:KnownModules -notcontains $name) {
+            Write-Host "  '$name' isn't a module. Available: $($script:KnownModules -join ', ')" -ForegroundColor Red
+            return
+        }
+        $visible = switch ($verb) {
+            { $_ -in 'on',  'show', 'yes' } { $true }
+            { $_ -in 'off', 'hide', 'no'  } { $false }
+            default {
+                Write-Host "  usage: phaethon modules <name> on|off"
+                return
+            }
+        }
+        $changed = Set-ModuleVisibility $name $visible
+        if (-not $changed) {
+            Write-Host "  $name is already $(if ($visible) { 'on' } else { 'off' })" -ForegroundColor DarkGray
+            return
+        }
+        Write-Host "  $name $(if ($visible) { 'shown' } else { 'hidden' })" -ForegroundColor Green
+        Write-Host "  visible in the next window" -ForegroundColor DarkGray
         return
     }
     if ($args.Count -ge 1 -and "$($args[0])" -eq 'auto') {
@@ -734,13 +858,15 @@ function phaethon {
 
     $exe = Get-FastfetchExe
     if (-not $exe) { Write-Warning 'fastfetch.exe not found in PATH'; return }
-    # Only the bare splash call gets modules.jsonc applied automatically -
+    # Only the bare splash call gets module toggles applied automatically -
     # anyone typing real fastfetch flags is using the actual binary directly
     # and gets exactly what they asked for, untouched.
     if ($args.Count -eq 0) {
         $disabled = @(Get-DisabledModules)
         if ($disabled.Count) {
-            & $exe --structure-disabled ($disabled -join ':')
+            $cfg = Get-SplashConfig
+            if ($cfg) { & $exe -c $cfg --structure-disabled ($disabled -join ':') }
+            else      { & $exe --structure-disabled ($disabled -join ':') }
             return
         }
     }
@@ -1075,10 +1201,21 @@ Register-ArgumentCompleter -Native -CommandName phaethon -ScriptBlock {
             @(New-Completion '-n' 'do not run it at startup'),
             @(New-Completion 'toggle' 'flip it') | ForEach-Object { $_ }
         }
+        'modules' {
+            if ($tokens.Count -ge 3) {
+                @(New-Completion 'on'  'show it'),
+                @(New-Completion 'off' 'hide it') | ForEach-Object { $_ }
+            } else {
+                $disabled = @(Get-DisabledModules)
+                @($script:KnownModules | ForEach-Object {
+                    New-Completion $_ $(if ($disabled -contains $_) { 'currently off' } else { 'currently on' })
+                })
+            }
+        }
         default {
             @(New-Completion 'auto'    'control the startup splash'),
             @(New-Completion 'theme'   'show or change the theme'),
-            @(New-Completion 'modules' 'show which info fields are on'),
+            @(New-Completion 'modules' 'show or toggle which info fields are on'),
             @(New-Completion 'reset'   'restore config.jsonc to the default') | ForEach-Object { $_ }
         }
     }

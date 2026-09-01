@@ -159,6 +159,7 @@ phaethon theme icon <file | on | off>      set this theme's picture, or hide/sho
 phaethon theme background <file | on | off>  same, for its wallpaper
 phaethon theme remove <name>          delete a theme
 phaethon modules                      show which info fields are on or off
+phaethon modules <name> on | off      show or hide one (CPU, GPU, uptime...)
 phaethon reset                        put config.jsonc back to the shipped default
 ```
 
@@ -235,23 +236,24 @@ converts the picture the first time.
 
 ### Which info fields show
 
-The picture and the wallpaper are set with commands, above. Which pieces of
-system information the splash prints — CPU, GPU, uptime, and so on — is set
-by editing `fastfetch/modules.jsonc` directly:
+The picture and the wallpaper are set with commands, above; so is everything
+else — no file to open by hand:
 
-```jsonc
-"cpu":      true,
-"gpu":      false,
-"uptime":   true,
+```powershell
+phaethon modules              # see what's on
+phaethon modules gpu off      # hide one
+phaethon modules gpu on       # bring it back
 ```
 
-`true` shows a field, `false` hides it — nothing is deleted, so flipping it
-back brings it right back. `phaethon modules` prints the current state of
-every field without opening the file. Hiding every field inside one of the
-boxed sections (Hardware, Software, Session, Uptime/Date) leaves that
-section's frame empty rather than collapsing it — a deliberate trade-off to
-keep the file a flat on/off list instead of something that needs its layout
-rewritten every time.
+Nothing is ever deleted — `off` just stops it from printing, and `on` brings
+it straight back. If hiding a field empties out one of the boxed sections
+(Hardware, Software, Session, Uptime/Date) entirely, that section's frame
+disappears too instead of framing nothing.
+
+Available fields: `host, cpu, gpu, memory, swap, disk, display, os, wm,
+shell, terminal, locale, localip, users, sound, uptime, datetime`. `localip`
+prints your local network address — turn it off if you'd rather not have it
+on screen by default.
 
 Pictures are capped at **64×64 pixels**. The logo takes one terminal column per
 pixel across and one row per two down, so past that the information column gets
@@ -431,7 +433,7 @@ next to the others means it travels with the folder.
 
 ### Change what information is shown
 
-For just turning fields on or off, edit `fastfetch/modules.jsonc` — see
+For just turning fields on or off, use `phaethon modules` — see
 [Which info fields show](#which-info-fields-show) above; no need to touch
 `config.jsonc` at all for that.
 
@@ -470,10 +472,12 @@ Files stay in one place, and fastfetch works from PowerShell, cmd or Git Bash
 alike.
 
 **Switch state lives outside the scripts.** Whether the splash runs is decided
-by an empty file, `fastfetch/autostart.on` — present means on. Flipping the
-switch creates or deletes that file and never rewrites the profile script, so a
-bad toggle can never leave you with a broken shell. It is also in `.gitignore`,
-so turning things on and off never shows up as a pending change.
+by an empty file, `fastfetch/autostart.on` — present means on. Which info
+fields are hidden works the same way, in `fastfetch/modules.disabled` — one
+type per line, written by `phaethon modules`. Flipping either never rewrites
+the profile script, so a bad toggle can never leave you with a broken shell.
+Both are also in `.gitignore`, so turning things on and off never shows up as
+a pending change.
 
 **The splash knows when to stay quiet.** Your profile is loaded by background
 scripts too, not just by terminal windows. Without a guard the artwork would end
@@ -549,7 +553,6 @@ fastfetch/
       alice.txt          generated from it; do not edit by hand
   config.jsonc           layout, colours, which info to show
   config.default.jsonc   the copy "phaethon reset" restores from
-  modules.jsonc          on/off switch for each info field
   requirements.txt       the one library the scripts need
   logo-from-png.py       PNG -> txt, after you redraw
   logo-to-png.py         txt -> PNG, to get the image back out
@@ -574,9 +577,9 @@ prompt as your default, the theming follows you there. Replace it with a real
 GUID (copy it from your `settings.json`) if you would rather pin it to one
 specific profile.
 
-Two things are deliberately not in the repository: `fastfetch/autostart.on`,
-because it is per-machine state, and your `settings.json` backups, because they
-contain your own local paths.
+A few things are deliberately not in the repository: `fastfetch/autostart.on`
+and `fastfetch/modules.disabled`, because they are per-machine state, and your
+`settings.json` backups, because they contain your own local paths.
 
 ---
 

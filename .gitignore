@@ -1,6 +1,8 @@
-# Local state: whether fastfetch runs at startup on THIS machine.
-# Tracking it would mean every toggle shows up as a pending change.
+# Local state: whether fastfetch runs at startup on THIS machine, and which
+# info fields are hidden. Tracking either would mean every toggle shows up as
+# a pending change.
 fastfetch/autostart.on
+fastfetch/modules.disabled
 
 # Backups of your own Windows Terminal settings.json. Machine-specific and
 # full of local paths, profile GUIDs and WSL distros: never publish them.

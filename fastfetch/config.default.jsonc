@@ -169,9 +169,15 @@
     },
     {
       "type": "locale",
-      "key": "└─ LOCALE",
+      "key": "├─ LOCALE",
       "keyColor": "#E8C79B",
       "format": "{result}"
+    },
+    {
+      "type": "localip",
+      "key": "└─ IP",
+      "keyColor": "#E8C79B",
+      "format": "{ifname} // {ipv4}"
     },
     {
       "type": "custom",
