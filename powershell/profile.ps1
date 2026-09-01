@@ -19,9 +19,6 @@
 #      phaethon theme <file.txt>          install a ready-made logo
 #      phaethon modules                   show which info fields are on or off
 #
-#  "fastfetch" still works too - it is the same function under its old name,
-#  kept so nothing that already types "fastfetch theme ..." breaks.
-#
 #  Setting an icon also writes the new width and height into config.jsonc: the
 #  step that is easy to forget, and that leaves the text column in the wrong
 #  place when it is skipped.
@@ -750,10 +747,6 @@ function phaethon {
     & $exe @args
 }
 
-# The old name, kept working so nothing that already types "fastfetch theme
-# ..." breaks - it is just phaethon under another name.
-function fastfetch { phaethon @args }
-
 # ---------------------------------------------- Windows Terminal appearance --
 
 function Get-WTSettings {
@@ -1046,7 +1039,7 @@ function New-Completion($Text, $Tooltip) {
 # everything it does not recognise reaches the real binary untouched, and there
 # are no declared parameters for a completer to attach to. Registering it as
 # native still fires for a function that shadows a command of the same name.
-Register-ArgumentCompleter -Native -CommandName phaethon, fastfetch -ScriptBlock {
+Register-ArgumentCompleter -Native -CommandName phaethon -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
 
     $tokens = @($commandAst.CommandElements | ForEach-Object { "$_" })

@@ -162,9 +162,7 @@ phaethon modules                      show which info fields are on or off
 phaethon reset                        put config.jsonc back to the shipped default
 ```
 
-`fastfetch` still works too, typed in place of `phaethon` — same command under
-its old name, and `fastfetch icon` still works as an alias for
-`phaethon theme` within it.
+`phaethon icon` still works as an alias for `phaethon theme`.
 
 Press Tab after any of these to complete character names and switches.
 
