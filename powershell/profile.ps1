@@ -75,6 +75,17 @@ function Test-FastfetchInteractive {
     return $true
 }
 
+function Test-IsElevated {
+    # Windows Terminal deliberately drops backgroundImage/acrylic on an
+    # elevated window regardless of what settings.json says (a security
+    # choice on Microsoft's part, not a bug here) - so the autostart splash
+    # would show up half-themed. Skipping it in that case is a call this
+    # profile makes on its own; typing "phaethon" by hand still works exactly
+    # the same as anywhere else.
+    ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+        [Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
 function Set-FastfetchAutostart([bool]$On) {
     if ($On) {
         $dir = Split-Path -Parent $script:FastfetchFlag
@@ -1314,6 +1325,6 @@ Register-ArgumentCompleter -Native -CommandName customize -ScriptBlock {
 
 # ---------------------------------------------------------------- startup ----
 
-if ((Test-Path -LiteralPath $script:FastfetchFlag) -and (Test-FastfetchInteractive)) {
+if ((Test-Path -LiteralPath $script:FastfetchFlag) -and (Test-FastfetchInteractive) -and -not (Test-IsElevated)) {
     phaethon
 }

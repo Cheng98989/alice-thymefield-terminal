@@ -172,6 +172,14 @@ Anything else you type after `phaethon` goes straight to the real fastfetch
 program, so `phaethon --version`, `phaethon -s cpu` and the rest keep working
 normally.
 
+**The splash does not run automatically in an elevated ("Run as
+administrator") window.** Windows Terminal itself drops the background image
+and transparency on an elevated window no matter what `settings.json` says —
+a security choice Microsoft made, not something this repo can override — so
+the splash would show up half-themed there anyway. Typing `phaethon` by hand
+still works exactly the same in an admin window; it is only the automatic
+one at startup that is skipped.
+
 ---
 
 ## Making it your own
