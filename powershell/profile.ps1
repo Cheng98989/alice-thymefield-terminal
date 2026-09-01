@@ -133,10 +133,25 @@ function Set-LogoBlock([string]$Source, [int]$Width, [int]$Height) {
 }
 
 function Get-LogoSource {
+    # The source string is left in place even when the logo is switched off
+    # (Set-LogoBlock's comment explains why), so it must not be trusted alone -
+    # a caller also needs Get-LogoType to know whether it is actually drawn.
     $file = Join-Path $script:FastfetchDir 'config.jsonc'
     if (-not (Test-Path -LiteralPath $file)) { return $null }
     $text = Get-Content -LiteralPath $file -Raw -Encoding UTF8
     $m = [regex]::Match($text, '"source"\s*:\s*"([^"]*)"')
+    if ($m.Success) { $m.Groups[1].Value } else { $null }
+}
+
+function Get-LogoType {
+    $file = Join-Path $script:FastfetchDir 'config.jsonc'
+    if (-not (Test-Path -LiteralPath $file)) { return $null }
+    $text = Get-Content -LiteralPath $file -Raw -Encoding UTF8
+    $start = $text.IndexOf('"logo"')
+    if ($start -lt 0) { return $null }
+    $end = $text.IndexOf('"display"')
+    if ($end -lt $start) { $end = $text.Length }
+    $m = [regex]::Match($text.Substring($start, $end - $start), '"type"\s*:\s*"([^"]*)"')
     if ($m.Success) { $m.Groups[1].Value } else { $null }
 }
 
@@ -233,8 +248,9 @@ function Set-TitleCharacter([string]$NewName) {
 }
 
 function Show-FastfetchIcon {
-    $current = Get-LogoSource
+    $current = if ((Get-LogoType) -eq 'none') { $null } else { Get-LogoSource }
     $chars   = @(Get-Characters)
+    $curName = Get-CurrentCharacterName
     Write-Host ""
     if ($current) {
         $leaf = Split-Path -Leaf $current
@@ -248,14 +264,25 @@ function Show-FastfetchIcon {
         } else {
             Write-Host "  file       missing: $current" -ForegroundColor Red
         }
+    } elseif (Test-ThemeHidden $curName 'icon') {
+        Write-Host "  character  " -NoNewline
+        Write-Host "$curName" -NoNewline -ForegroundColor Green
+        Write-Host "  (icon hidden - " -NoNewline -ForegroundColor DarkGray
+        Write-Host "fastfetch theme icon on" -NoNewline -ForegroundColor DarkGray
+        Write-Host " to show it)" -ForegroundColor DarkGray
     } else {
         Write-Host "  no logo configured" -ForegroundColor Red
     }
 
-    $bg = Get-ThemeBackground (Get-CurrentCharacterName)
+    $bgFile = Get-ThemeBackgroundFile $curName
     Write-Host "  background " -NoNewline
-    if ($bg) { Write-Host (Split-Path -Leaf $bg) -ForegroundColor Green }
-    else     { Write-Host "none" -ForegroundColor DarkGray }
+    if ($bgFile -and (Test-ThemeHidden $curName 'background')) {
+        Write-Host "$(Split-Path -Leaf $bgFile) (hidden)" -ForegroundColor DarkGray
+    } elseif ($bgFile) {
+        Write-Host (Split-Path -Leaf $bgFile) -ForegroundColor Green
+    } else {
+        Write-Host "none" -ForegroundColor DarkGray
+    }
 
     if ($chars.Count) {
         Write-Host ""
@@ -264,17 +291,20 @@ function Show-FastfetchIcon {
             $bits = @()
             if (-not $c.Txt -and $c.Png) { $bits += 'converts on first use' }
             if (-not $c.Txt -and -not $c.Png) { $bits += 'no icon' }
-            if (Get-ThemeBackground $c.Name) { $bits += 'background' }
+            if (Test-ThemeHidden $c.Name 'icon') { $bits += 'icon hidden' }
+            $bg = Get-ThemeBackgroundFile $c.Name
+            if ($bg -and (Test-ThemeHidden $c.Name 'background')) { $bits += 'background hidden' }
+            elseif ($bg) { $bits += 'background' }
             $note = if ($bits.Count) { "  (" + ($bits -join ', ') + ")" } else { "" }
             Write-Host "    $($c.Name)$note" -ForegroundColor DarkGray
         }
     }
     Write-Host ""
-    Write-Host "  fastfetch theme <name>            switch theme" -ForegroundColor DarkGray
-    Write-Host "  fastfetch theme <file.png>        import a new one" -ForegroundColor DarkGray
-    Write-Host "  fastfetch theme icon <file|off>   set this theme's picture" -ForegroundColor DarkGray
-    Write-Host "  fastfetch theme background <file|off>  and its wallpaper" -ForegroundColor DarkGray
-    Write-Host "  fastfetch theme remove <name>     delete one" -ForegroundColor DarkGray
+    Write-Host "  fastfetch theme <name>               switch theme" -ForegroundColor DarkGray
+    Write-Host "  fastfetch theme <file.png>           import a new one" -ForegroundColor DarkGray
+    Write-Host "  fastfetch theme icon <file|on|off>   set or hide this theme's picture" -ForegroundColor DarkGray
+    Write-Host "  fastfetch theme background <file|on|off>  and its wallpaper" -ForegroundColor DarkGray
+    Write-Host "  fastfetch theme remove <name>        delete one" -ForegroundColor DarkGray
     Write-Host ""
 }
 
@@ -320,6 +350,9 @@ function Convert-CharacterPng($Png, [bool]$Force) {
 }
 
 function Use-Character($TxtPath, $Label, [bool]$Force, [bool]$CheckSize) {
+    # Switching to a character whose icon is hidden must not silently reveal
+    # it again - draw the empty logo instead, same as if it had no picture.
+    if (Test-ThemeHidden $Label 'icon') { Use-EmptyIcon $Label; return }
     $newName = Get-CharacterDisplayName $Label
 
     $m = Get-LogoMetrics $TxtPath
@@ -456,10 +489,15 @@ function Set-ThemeBackground($Arg) {
     $dir = Join-Path $script:CharactersDir $name
 
     if ("$Arg" -in 'off', 'none', 'clear', '-clear') {
-        $existing = Get-ThemeBackground $name
-        if (-not $existing) { Write-Host "  $name has no background" -ForegroundColor DarkGray; return }
-        Remove-Item -LiteralPath $existing -Force
-        Write-Host "  background removed from $name" -ForegroundColor Green
+        if (-not (Get-ThemeBackgroundFile $name)) { Write-Host "  $name has no background" -ForegroundColor DarkGray; return }
+        if (Test-ThemeHidden $name 'background') { Write-Host "  $name's background is already hidden" -ForegroundColor DarkGray; return }
+        Set-ThemeVisibility $name 'background' $false
+        Write-Host "  background hidden for $name" -ForegroundColor Green
+    } elseif ("$Arg" -in 'on', 'show') {
+        if (-not (Get-ThemeBackgroundFile $name)) { Write-Host "  $name has no background to show" -ForegroundColor DarkGray; return }
+        if (-not (Test-ThemeHidden $name 'background')) { Write-Host "  $name's background is already visible" -ForegroundColor DarkGray; return }
+        Set-ThemeVisibility $name 'background' $true
+        Write-Host "  background shown for $name" -ForegroundColor Green
     } else {
         if (-not (Test-Path -LiteralPath $Arg)) {
             Write-Host "  no such file: $Arg" -ForegroundColor Red; return
@@ -471,8 +509,9 @@ function Set-ThemeBackground($Arg) {
         }
         # One background per theme, so any previous one goes whatever its
         # extension was - otherwise two would sit there and the older might win.
-        Get-ThemeBackground $name | ForEach-Object { Remove-Item -LiteralPath $_ -Force }
+        Get-ThemeBackgroundFile $name | ForEach-Object { Remove-Item -LiteralPath $_ -Force }
         Copy-Item -LiteralPath $src -Destination (Join-Path $dir "background$ext") -Force
+        Set-ThemeVisibility $name 'background' $true
         Write-Host "  background of $name set from $(Split-Path -Leaf $src)" -ForegroundColor Green
     }
 
@@ -487,12 +526,23 @@ function Set-ThemeBackground($Arg) {
 function Set-ThemeIcon($Arg, [bool]$Force) {
     $name = Get-CurrentCharacterName
     if (-not $name) { Write-Host "  no theme is active" -ForegroundColor Red; return }
+    $c = @(Get-Characters) | Where-Object { $_.Name -eq $name } | Select-Object -First 1
+
     if ("$Arg" -in 'off', 'none', 'clear', '-clear') {
-        $c = @(Get-Characters) | Where-Object { $_.Name -eq $name } | Select-Object -First 1
-        if ($c -and $c.Txt) { Remove-Item -LiteralPath $c.Txt -Force }
+        if (-not $c -or (-not $c.Txt -and -not $c.Png)) { Write-Host "  $name has no icon" -ForegroundColor DarkGray; return }
+        if (Test-ThemeHidden $name 'icon') { Write-Host "  $name's icon is already hidden" -ForegroundColor DarkGray; return }
+        Set-ThemeVisibility $name 'icon' $false
         Use-EmptyIcon $name
         return
     }
+    if ("$Arg" -in 'on', 'show') {
+        if (-not $c -or (-not $c.Txt -and -not $c.Png)) { Write-Host "  $name has no icon to show" -ForegroundColor DarkGray; return }
+        if (-not (Test-ThemeHidden $name 'icon')) { Write-Host "  $name's icon is already visible" -ForegroundColor DarkGray; return }
+        Set-ThemeVisibility $name 'icon' $true
+        Set-FastfetchIcon $name $Force
+        return
+    }
+    Set-ThemeVisibility $name 'icon' $true
     Set-FastfetchIcon $Arg $Force
 }
 
@@ -597,11 +647,11 @@ function fastfetch {
             }
             'background' {
                 if ($words.Count -ge 2) { Set-ThemeBackground $words[1] }
-                else { Write-Host "  usage: fastfetch theme background <file | off>" }
+                else { Write-Host "  usage: fastfetch theme background <file | on | off>" }
             }
             'icon' {
                 if ($words.Count -ge 2) { Set-ThemeIcon $words[1] $force }
-                else { Write-Host "  usage: fastfetch theme icon <file | off>" }
+                else { Write-Host "  usage: fastfetch theme icon <file | on | off>" }
             }
             ''       { Show-FastfetchIcon }
             default  { Set-FastfetchIcon $words[0] $force }
@@ -693,13 +743,41 @@ $script:ManagedKeys = @('colorScheme', 'backgroundImage', 'backgroundImageOpacit
                         'backgroundImageStretchMode', 'backgroundImageAlignment',
                         'font', 'opacity', 'useAcrylic', 'cursorShape')
 
-function Get-ThemeBackground($Name) {
+function Get-HiddenMarker($Name, $What) {
+    Join-Path (Join-Path $script:CharactersDir $Name) "$What.hidden"
+}
+
+function Test-ThemeHidden($Name, $What) {
+    if (-not $Name) { return $false }
+    Test-Path -LiteralPath (Get-HiddenMarker $Name $What)
+}
+
+function Set-ThemeVisibility($Name, $What, [bool]$Visible) {
+    # "off" never deletes the picture, only this marker - so undoing it is a
+    # matter of showing it again, not re-importing the file.
+    $marker = Get-HiddenMarker $Name $What
+    if ($Visible) {
+        Remove-Item -LiteralPath $marker -Force -ErrorAction SilentlyContinue
+    } else {
+        Write-Utf8NoBom $marker "Delete this file to show the $What again."
+    }
+}
+
+function Get-ThemeBackgroundFile($Name) {
+    # The background picture regardless of whether it is currently shown - the
+    # marker itself has BaseName "background" too, so it must be excluded here
+    # or "off" would make Get-ChildItem pick the marker up as the picture.
     if (-not $Name) { return $null }
     $dir = Join-Path $script:CharactersDir $Name
     if (-not (Test-Path -LiteralPath $dir)) { return $null }
     Get-ChildItem -LiteralPath $dir -File -ErrorAction SilentlyContinue |
-        Where-Object { $_.BaseName -eq 'background' } |
+        Where-Object { $_.BaseName -eq 'background' -and $_.Extension -ne '.hidden' } |
         Select-Object -First 1 -ExpandProperty FullName
+}
+
+function Get-ThemeBackground($Name) {
+    if (Test-ThemeHidden $Name 'background') { return $null }
+    Get-ThemeBackgroundFile $Name
 }
 
 function Get-ThemeLayer($Name) {
@@ -910,7 +988,8 @@ Register-ArgumentCompleter -Native -CommandName fastfetch -ScriptBlock {
     $suggestions = switch ($sub) {
         { $_ -in 'theme', 'icon' } {
             if ($tokens.Count -ge 3 -and $tokens[2].ToLower() -in 'icon', 'background') {
-                @(New-Completion 'off' 'remove it from this theme')
+                @(New-Completion 'off' 'hide it, without deleting the file'),
+                @(New-Completion 'on'  'show it again')
             }
             elseif ($tokens.Count -ge 3 -and $tokens[2].ToLower() -eq 'remove') {
                 @(Get-Characters | ForEach-Object { New-Completion $_.Name 'delete this character' })

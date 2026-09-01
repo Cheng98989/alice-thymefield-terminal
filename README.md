@@ -155,8 +155,8 @@ fastfetch auto toggle     flip it
 fastfetch theme                        show the active theme and what else exists
 fastfetch theme <name>                 switch to another one
 fastfetch theme <file>                 import a picture as a new theme
-fastfetch theme icon <file | off>      set or drop this theme's picture
-fastfetch theme background <file | off>  set or drop its wallpaper
+fastfetch theme icon <file | on | off>      set this theme's picture, or hide/show it
+fastfetch theme background <file | on | off>  same, for its wallpaper
 fastfetch theme remove <name>          delete a theme
 fastfetch reset                        put config.jsonc back to the shipped default
 ```
@@ -205,11 +205,17 @@ left margin.
 To change one piece of the active theme without touching the rest:
 
 ```powershell
-fastfetch theme background C:\path	o\wallpaper.png
+fastfetch theme background C:\path\to\wallpaper.png
 fastfetch theme background off
-fastfetch theme icon C:\path	o\picture.png
+fastfetch theme background on
+fastfetch theme icon C:\path\to\picture.png
 fastfetch theme icon off
+fastfetch theme icon on
 ```
+
+`off` only hides — it never deletes the file. The picture stays in the theme's
+folder and `on` brings it straight back, so switching a piece off and on is
+free to do as often as you like.
 
 Those act on whichever theme is showing. To edit a different one, switch to it
 first.
